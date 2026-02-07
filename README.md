@@ -11,7 +11,7 @@ Product base for a profile-link platform with routes like `/username`.
 ## Current routes
 
 - `/` marketing/entry page
-- `/auth` Google OAuth login
+- `/auth` wallet login (Base, MetaMask, Trust Wallet, Phantom)
 - `/dashboard` profile + links editor
 - `/:username` public profile page
 
@@ -47,7 +47,7 @@ This creates:
 - RLS policies
 - trigger to auto-create profile rows for new auth users
 
-## 3) Supabase Auth URLs
+## 3) Supabase Auth setup
 
 In Supabase Auth settings:
 
@@ -61,10 +61,10 @@ In Supabase Auth settings:
 
 In Supabase Auth providers:
 
-- Enable `Google` provider.
-- Set Google OAuth Client ID and Client Secret.
-- In Google Cloud OAuth credentials add callback URL:
-  - `https://ayvhootglhoekuncgbpl.supabase.co/auth/v1/callback`
+- Enable `Web3` provider.
+- Enable both chains:
+  - `Ethereum` (for Base, MetaMask, Trust Wallet)
+  - `Solana` (for Phantom)
 
 ## 4) Vercel setup
 

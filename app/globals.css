@@ -91,6 +91,12 @@ img {
   border-color: rgba(214, 230, 255, 0.6);
 }
 
+.btn:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-primary {
   color: #101a30;
   border-color: rgba(255, 205, 148, 0.7);
@@ -342,6 +348,27 @@ img {
   display: flex;
   flex-wrap: wrap;
   gap: 9px;
+}
+
+.wallet-btn {
+  width: 100%;
+  justify-content: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wallet-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #0e1930;
+  background: linear-gradient(135deg, #ffcb8e, #84f2df 65%, #8ab4ff);
 }
 
 @media (max-width: 760px) {

@@ -38,7 +38,7 @@ export default async function HomePage() {
         </p>
 
         <ul className="feature-list">
-          <li>Supabase Auth + Postgres</li>
+          <li>Supabase Web3 Auth + Postgres</li>
           <li>RLS-secured profile and links</li>
           <li>Public route structure: <code>/username</code></li>
           <li>Ready for Vercel now, custom domain later</li>
@@ -51,7 +51,7 @@ export default async function HomePage() {
             </Link>
           ) : (
             <Link className="btn btn-primary" href="/auth">
-              Sign in with email
+              Sign in with wallet
             </Link>
           )}
           <Link className="btn" href="/xiple">
