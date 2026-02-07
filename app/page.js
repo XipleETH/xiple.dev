@@ -54,7 +54,7 @@ export default async function HomePage() {
               Sign in with email
             </Link>
           )}
-          <Link className="btn" href="/xipleeth">
+          <Link className="btn" href="/xiple">
             Example profile route
           </Link>
         </div>

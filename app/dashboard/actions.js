@@ -8,6 +8,41 @@ import { createClient } from "@/lib/supabase/server";
 const USERNAME_REGEX = /^[a-z0-9](?:[a-z0-9_]{1,28}[a-z0-9])?$/;
 
 const VALID_LINK_KINDS = new Set(LINK_KIND_OPTIONS.map((entry) => entry.value));
+const XIPLE_USERNAME = "xiple";
+
+const XIPLE_PROFILE_DEFAULTS = {
+  displayName: "Xiple",
+  tagline: "Chadcoder",
+  bio: "Shipping apps for PC, Android, Reddit and Web.",
+  avatarUrl: "/assets/profile-photo.jpg"
+};
+
+const XIPLE_SEED_LINKS = [
+  {
+    label: "Darkest Rumble",
+    url: "https://steamcommunity.com/sharedfiles/filedetails/?id=3661115905",
+    kind: "project",
+    platform: "steam"
+  },
+  {
+    label: "Lookback Finance",
+    url: "https://lookback.finance/",
+    kind: "project",
+    platform: "android"
+  },
+  {
+    label: "@xipleeth on X",
+    url: "https://x.com/xipleeth",
+    kind: "social",
+    platform: "x"
+  },
+  {
+    label: "XipleETH on GitHub",
+    url: "https://github.com/XipleETH",
+    kind: "social",
+    platform: "github"
+  }
+];
 
 function parseIntSafe(value, fallback = 0) {
   const parsed = Number.parseInt(String(value || "").trim(), 10);
@@ -65,14 +100,16 @@ export async function saveProfileAction(formData) {
     }
   }
 
+  const isXipleProfile = username === XIPLE_USERNAME;
+
   const { error } = await supabase
     .from("profiles")
     .update({
       username: username || null,
-      display_name: displayName || null,
-      tagline: tagline || null,
-      bio: bio || null,
-      avatar_url: avatarUrl || null
+      display_name: displayName || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.displayName : null),
+      tagline: tagline || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.tagline : null),
+      bio: bio || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.bio : null),
+      avatar_url: avatarUrl || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.avatarUrl : null)
     })
     .eq("id", user.id);
 
@@ -82,6 +119,34 @@ export async function saveProfileAction(formData) {
       redirect("/dashboard?error=Username%20already%20taken");
     }
     redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+  }
+
+  if (isXipleProfile) {
+    const { count, error: countError } = await supabase
+      .from("profile_links")
+      .select("id", { head: true, count: "exact" })
+      .eq("profile_id", user.id);
+
+    if (countError) {
+      redirect(`/dashboard?error=${encodeURIComponent(countError.message)}`);
+    }
+
+    if ((count || 0) === 0) {
+      const rows = XIPLE_SEED_LINKS.map((entry, index) => ({
+        profile_id: user.id,
+        label: entry.label,
+        url: entry.url,
+        kind: entry.kind,
+        platform: entry.platform,
+        position: index + 1,
+        is_active: true
+      }));
+
+      const { error: seedError } = await supabase.from("profile_links").insert(rows);
+      if (seedError) {
+        redirect(`/dashboard?error=${encodeURIComponent(seedError.message)}`);
+      }
+    }
   }
 
   redirect("/dashboard?message=Profile%20saved");
