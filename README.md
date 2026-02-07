@@ -11,7 +11,7 @@ Product base for a profile-link platform with routes like `/username`.
 ## Current routes
 
 - `/` marketing/entry page
-- `/auth` magic-link login
+- `/auth` Google OAuth login
 - `/dashboard` profile + links editor
 - `/:username` public profile page
 
@@ -58,6 +58,13 @@ In Supabase Auth settings:
   - `https://hubfol.io/**` (future)
   - `https://www.hubfol.io/**` (future)
   - `http://localhost:3000/**`
+
+In Supabase Auth providers:
+
+- Enable `Google` provider.
+- Set Google OAuth Client ID and Client Secret.
+- In Google Cloud OAuth credentials add callback URL:
+  - `https://ayvhootglhoekuncgbpl.supabase.co/auth/v1/callback`
 
 ## 4) Vercel setup
 

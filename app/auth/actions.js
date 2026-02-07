@@ -6,21 +6,34 @@ import { redirect } from "next/navigation";
 import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
-export async function signInWithEmailAction(formData) {
-  const email = String(formData.get("email") || "").trim().toLowerCase();
-
-  if (!email) {
-    redirect("/auth?error=Please%20enter%20your%20email");
+function resolveOrigin(headerStore) {
+  const origin = headerStore.get("origin");
+  if (origin) {
+    return origin;
   }
 
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  if (forwardedHost) {
+    const proto = headerStore.get("x-forwarded-proto") || "https";
+    return `${proto}://${forwardedHost}`;
+  }
+
+  return env.NEXT_PUBLIC_APP_URL;
+}
+
+export async function signInWithGoogleAction() {
   const supabase = await createClient();
   const headerStore = await headers();
-  const origin = headerStore.get("origin") || env.NEXT_PUBLIC_APP_URL;
+  const origin = resolveOrigin(headerStore);
 
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/dashboard`
+      redirectTo: `${origin}/auth/callback?next=/dashboard`,
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent"
+      }
     }
   });
 
@@ -28,5 +41,9 @@ export async function signInWithEmailAction(formData) {
     redirect(`/auth?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/auth?message=Check%20your%20email%20for%20the%20magic%20link");
+  if (!data?.url) {
+    redirect("/auth?error=Could%20not%20start%20Google%20sign%20in");
+  }
+
+  redirect(data.url);
 }
