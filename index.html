@@ -1,0 +1,143 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xiple.dev | links</title>
+  <meta name="description" content="xiple.dev link hub with projects for PC, web, Android and Reddit." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="bg-glow glow-a" aria-hidden="true"></div>
+  <div class="bg-glow glow-b" aria-hidden="true"></div>
+
+  <main class="page">
+    <section class="card profile reveal">
+      <div class="profile-lang" aria-label="Language switch">
+        <button type="button" class="lang-btn flag-btn active" data-lang="en" aria-label="Switch to English" title="English">
+          <img src="assets/icons/flag-gb.svg" alt="English" />
+        </button>
+        <button type="button" class="lang-btn flag-btn" data-lang="es" aria-label="Cambiar a espanol" title="Espanol">
+          <img src="assets/icons/flag-es.svg" alt="Espanol" />
+        </button>
+      </div>
+      <div class="avatar-wrap">
+        <img src="assets/profile-photo.jpg" alt="Xiple profile photo" />
+      </div>
+      <h1>Xiple</h1>
+      <p class="tagline" data-i18n="tagline">Chadcoder</p>
+
+      <div class="platform-strip" aria-label="Platforms">
+        <button type="button" class="platform-chip" data-platform="steam" aria-pressed="false">
+          <img class="icon mono-icon" src="assets/icons/steam.svg" alt="" aria-hidden="true" />
+          Steam
+        </button>
+        <button type="button" class="platform-chip" data-platform="windows" aria-pressed="false">
+          <img class="icon" src="assets/icons/windows.svg" alt="" aria-hidden="true" />
+          Windows
+        </button>
+        <button type="button" class="platform-chip" data-platform="reddit" aria-pressed="false">
+          <img class="icon mono-icon" src="assets/icons/reddit.svg" alt="" aria-hidden="true" />
+          Reddit
+        </button>
+        <button type="button" class="platform-chip" data-platform="android" aria-pressed="false">
+          <img class="icon mono-icon" src="assets/icons/android.svg" alt="" aria-hidden="true" />
+          Android
+        </button>
+      </div>
+    </section>
+
+    <section class="card social-links reveal" aria-label="Social links">
+      <a class="social-btn" href="https://x.com/xipleeth" target="_blank" rel="noreferrer noopener" aria-label="X" title="X">
+        <img class="icon mono-icon social-icon" src="assets/icons/x.svg" alt="" aria-hidden="true" />
+      </a>
+      <span class="social-btn is-disabled" aria-label="Twitch coming soon" title="Twitch (soon)">
+        <img class="icon mono-icon social-icon" src="assets/icons/twitch.svg" alt="" aria-hidden="true" />
+      </span>
+      <span class="social-btn is-disabled" aria-label="YouTube coming soon" title="YouTube (soon)">
+        <img class="icon mono-icon social-icon" src="assets/icons/youtube.svg" alt="" aria-hidden="true" />
+      </span>
+      <a class="social-btn" href="https://github.com/XipleETH" target="_blank" rel="noreferrer noopener" aria-label="GitHub" title="GitHub">
+        <img class="icon mono-icon social-icon" src="assets/icons/github.svg" alt="" aria-hidden="true" />
+      </a>
+    </section>
+
+    <section class="card projects reveal" aria-labelledby="projects-title">
+      <h2 id="projects-title" data-i18n="projects_title">Projects</h2>
+
+      <a class="project-item" data-platforms="steam windows" href="https://steamcommunity.com/sharedfiles/filedetails/?id=3661115905" target="_blank" rel="noreferrer noopener">
+        <img src="assets/darkest-rumble.jpg" alt="Darkest Rumble project cover" loading="lazy" />
+        <span class="project-copy">
+          <strong>Darkest Rumble</strong>
+          <span data-i18n="darkest_desc">controller vibrations for darkest dungeon</span>
+          <span class="project-platforms">
+            <span class="platform-mini">
+              <img class="icon mono-icon" src="assets/icons/steam.svg" alt="" aria-hidden="true" />
+              Steam
+            </span>
+            <span class="platform-mini">
+              <img class="icon" src="assets/icons/windows.svg" alt="" aria-hidden="true" />
+              Windows
+            </span>
+          </span>
+        </span>
+      </a>
+
+      <a class="project-item" data-platforms="android" href="https://lookback.finance/" target="_blank" rel="noreferrer noopener">
+        <img src="assets/lookback-og.png" alt="Lookback Finance project cover" loading="lazy" />
+        <span class="project-copy">
+          <strong>Lookback Finance</strong>
+          <span data-i18n="lookback_desc">traders' social app</span>
+          <span class="project-platforms">
+            <span class="platform-mini">
+              <img class="icon mono-icon" src="assets/icons/android.svg" alt="" aria-hidden="true" />
+              Android
+            </span>
+          </span>
+        </span>
+      </a>
+
+      <div class="project-item muted" data-platforms="reddit">
+        <span class="pill" aria-hidden="true">
+          <img class="icon mono-icon pill-icon" src="assets/icons/reddit.svg" alt="" />
+        </span>
+        <span class="project-copy">
+          <strong data-i18n="reddit_build_title">6FPS (Building)</strong>
+          <span data-i18n="reddit_build_desc">Collaborative animations</span>
+          <span class="project-platforms">
+            <span class="platform-mini">
+              <img class="icon mono-icon" src="assets/icons/reddit.svg" alt="" aria-hidden="true" />
+              Reddit
+            </span>
+          </span>
+        </span>
+      </div>
+
+      <div class="project-item muted" data-platforms="windows">
+        <span class="pill" aria-hidden="true">
+          <img class="icon pill-icon" src="assets/icons/windows.svg" alt="" />
+        </span>
+        <span class="project-copy">
+          <strong data-i18n="bhastic_build_title">bhastic (Building)</strong>
+          <span data-i18n="bhastic_build_desc">Sounds to haptics.</span>
+          <span class="project-platforms">
+            <span class="platform-mini">
+              <img class="icon" src="assets/icons/windows.svg" alt="" aria-hidden="true" />
+              Windows
+            </span>
+          </span>
+        </span>
+      </div>
+    </section>
+
+    <footer class="footer reveal">
+      <p>2026 xiple.dev</p>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
