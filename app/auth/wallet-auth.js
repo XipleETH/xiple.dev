@@ -133,6 +133,7 @@ export default function WalletAuth({
   embedded = false
 }) {
   const router = useRouter();
+  const supabase = createClient();
   const [pendingWallet, setPendingWallet] = useState("");
   const [message, setMessage] = useState(initialMessage || "");
   const [error, setError] = useState(initialError || "");
@@ -147,7 +148,6 @@ export default function WalletAuth({
       await ensureBaseChain(provider);
     }
 
-    const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithWeb3({
       chain: "ethereum",
       wallet: provider,
@@ -166,7 +166,6 @@ export default function WalletAuth({
       throw new Error("Wallet not detected: phantom");
     }
 
-    const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithWeb3({
       chain: "solana",
       wallet: provider,
@@ -176,6 +175,32 @@ export default function WalletAuth({
     if (authError) {
       throw authError;
     }
+  }
+
+  async function resolveRedirectPath() {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser();
+
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const username = String(profile?.username || "").trim();
+        if (username) {
+          return `/${username}`;
+        }
+        return redirectTo;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    return redirectTo;
   }
 
   async function connectWallet(walletId, type) {
@@ -190,7 +215,8 @@ export default function WalletAuth({
         await signInWithEvm(walletId);
       }
 
-      router.replace(redirectTo);
+      const nextPath = await resolveRedirectPath();
+      router.replace(nextPath);
       router.refresh();
     } catch (authError) {
       setError(parseError(authError));
