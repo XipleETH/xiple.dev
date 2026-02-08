@@ -262,10 +262,19 @@ export default function DashboardEditor({ profile, links }) {
 
               return (
                 <article key={link.id} className="card link-editor-card">
-                  <form action={updateLinkAction} className="link-row-form">
+                  <form action={updateLinkAction} className="link-row-form" encType="multipart/form-data">
                     <input type="hidden" name="id" value={link.id} />
                     <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
                     <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
+
+                    <label className={`link-image-slot${link.image_url ? " has-image" : ""}`} title="Upload project image">
+                      {link.image_url ? (
+                        <img className="link-image-mini" src={link.image_url} alt={`${link.label} image`} />
+                      ) : (
+                        <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
+                      )}
+                      <input className="sr-only-input" type="file" name="link_image_file" accept="image/*" />
+                    </label>
 
                     <PlatformSlot
                       value={selectedPlatform}
@@ -306,6 +315,11 @@ export default function DashboardEditor({ profile, links }) {
             <div className="link-row-form">
               <input className="input" name="label" placeholder="Project name" required maxLength={120} />
               <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
+
+              <label className="link-image-slot" title="Upload project image">
+                <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
+                <input className="sr-only-input" type="file" name="link_image_file" accept="image/*" />
+              </label>
 
               <PlatformSlot
                 value={newLinkPlatform}
