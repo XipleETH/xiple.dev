@@ -2,19 +2,20 @@
 
 import { redirect } from "next/navigation";
 
-import { LINK_KIND_OPTIONS, RESERVED_USERNAMES } from "@/lib/constants";
+import { PLATFORM_OPTIONS, RESERVED_USERNAMES, SOCIAL_OPTIONS } from "@/lib/constants";
+import { serializeProfilePlatforms } from "@/lib/profile-platforms";
 import { createClient } from "@/lib/supabase/server";
 
 const USERNAME_REGEX = /^[a-z0-9](?:[a-z0-9_]{1,28}[a-z0-9])?$/;
 
-const VALID_LINK_KINDS = new Set(LINK_KIND_OPTIONS.map((entry) => entry.value));
+const PROFILE_PLATFORM_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
+const SOCIAL_PLATFORM_SET = new Set(SOCIAL_OPTIONS.map((entry) => entry.value));
 const XIPLE_USERNAME = "xiple";
 
 const XIPLE_PROFILE_DEFAULTS = {
-  displayName: "Xiple",
-  tagline: "Chadcoder",
   bio: "Shipping apps for PC, Android, Reddit and Web.",
-  avatarUrl: "/assets/profile-photo.jpg"
+  avatarUrl: "/assets/profile-photo.jpg",
+  platforms: ["steam", "windows", "android", "reddit", "web"]
 };
 
 const XIPLE_SEED_LINKS = [
@@ -44,9 +45,53 @@ const XIPLE_SEED_LINKS = [
   }
 ];
 
-function parseIntSafe(value, fallback = 0) {
-  const parsed = Number.parseInt(String(value || "").trim(), 10);
-  return Number.isNaN(parsed) ? fallback : parsed;
+function normalizePlatform(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return normalized || null;
+}
+
+function parsePlatformsCsv(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      raw
+        .split(",")
+        .map((entry) => entry.trim())
+        .filter((entry) => PROFILE_PLATFORM_SET.has(entry))
+    )
+  );
+}
+
+function resolveLinkKind(platform) {
+  if (platform && PROFILE_PLATFORM_SET.has(platform)) {
+    return "project";
+  }
+
+  if (platform && SOCIAL_PLATFORM_SET.has(platform)) {
+    return "social";
+  }
+
+  return "project";
+}
+
+async function resolveNextLinkPosition(supabase, profileId) {
+  const { data, error } = await supabase
+    .from("profile_links")
+    .select("position")
+    .eq("profile_id", profileId)
+    .order("position", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw error;
+  }
+
+  const maxPosition = data?.[0]?.position ?? -1;
+  return maxPosition + 1;
 }
 
 async function requireUserProfile(supabase) {
@@ -78,10 +123,9 @@ export async function saveProfileAction(formData) {
   const supabase = await createClient();
   const user = await requireUserProfile(supabase);
 
-  const displayName = String(formData.get("display_name") || "").trim();
-  const tagline = String(formData.get("tagline") || "").trim();
   const bio = String(formData.get("bio") || "").trim();
   const avatarUrl = String(formData.get("avatar_url") || "").trim();
+  const selectedPlatforms = parsePlatformsCsv(formData.get("platforms"));
 
   let username = String(formData.get("username") || "").trim().toLowerCase();
   if (username.startsWith("@")) {
@@ -101,13 +145,16 @@ export async function saveProfileAction(formData) {
   }
 
   const isXipleProfile = username === XIPLE_USERNAME;
+  const tagline = serializeProfilePlatforms(
+    selectedPlatforms.length > 0 ? selectedPlatforms : isXipleProfile ? XIPLE_PROFILE_DEFAULTS.platforms : []
+  );
 
   const { error } = await supabase
     .from("profiles")
     .update({
       username: username || null,
-      display_name: displayName || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.displayName : null),
-      tagline: tagline || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.tagline : null),
+      display_name: null,
+      tagline,
       bio: bio || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.bio : null),
       avatar_url: avatarUrl || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.avatarUrl : null)
     })
@@ -158,23 +205,24 @@ export async function addLinkAction(formData) {
 
   const label = String(formData.get("label") || "").trim();
   const url = String(formData.get("url") || "").trim();
-  const kind = String(formData.get("kind") || "project").trim();
-  const platform = String(formData.get("platform") || "").trim().toLowerCase();
-  const position = parseIntSafe(formData.get("position"), 0);
+  const platform = normalizePlatform(formData.get("platform"));
 
   if (!label || !url) {
     redirect("/dashboard?error=Link%20label%20and%20URL%20are%20required");
   }
 
-  if (!VALID_LINK_KINDS.has(kind)) {
-    redirect("/dashboard?error=Invalid%20link%20type");
+  let position = 0;
+  try {
+    position = await resolveNextLinkPosition(supabase, user.id);
+  } catch (error) {
+    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
   }
 
   const { error } = await supabase.from("profile_links").insert({
     profile_id: user.id,
     label,
     url,
-    kind,
+    kind: resolveLinkKind(platform),
     platform: platform || null,
     position
   });
@@ -193,9 +241,7 @@ export async function updateLinkAction(formData) {
   const id = String(formData.get("id") || "").trim();
   const label = String(formData.get("label") || "").trim();
   const url = String(formData.get("url") || "").trim();
-  const kind = String(formData.get("kind") || "project").trim();
-  const platform = String(formData.get("platform") || "").trim().toLowerCase();
-  const position = parseIntSafe(formData.get("position"), 0);
+  const platform = normalizePlatform(formData.get("platform"));
   const isActive = String(formData.get("is_active") || "") === "on";
 
   if (!id || !label || !url) {
@@ -207,9 +253,8 @@ export async function updateLinkAction(formData) {
     .update({
       label,
       url,
-      kind: VALID_LINK_KINDS.has(kind) ? kind : "project",
+      kind: resolveLinkKind(platform),
       platform: platform || null,
-      position,
       is_active: isActive
     })
     .eq("id", id);

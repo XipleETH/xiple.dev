@@ -263,6 +263,30 @@ img {
   line-height: 1.5;
 }
 
+.profile-platforms {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 7px;
+}
+
+.platform-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(167, 197, 247, 0.35);
+  background: rgba(18, 29, 49, 0.82);
+  padding: 5px 10px;
+  font-size: 0.74rem;
+  color: #d6e5ff;
+}
+
+.platform-chip .icon {
+  width: 14px;
+  height: 14px;
+}
+
 .link-list {
   margin-top: 12px;
   display: grid;
@@ -350,6 +374,54 @@ img {
   gap: 9px;
 }
 
+.dashboard-workspace {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.panel {
+  display: grid;
+  gap: 12px;
+}
+
+.inline-profile-card {
+  border: 1px solid rgba(171, 197, 245, 0.25);
+  border-radius: 16px;
+  background: rgba(13, 22, 37, 0.66);
+  padding: 14px;
+}
+
+.platform-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.platform-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(178, 203, 248, 0.3);
+  border-radius: 999px;
+  background: rgba(14, 23, 40, 0.8);
+  color: #dce9ff;
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.platform-pill.active {
+  border-color: rgba(129, 244, 215, 0.55);
+  background: rgba(30, 64, 58, 0.7);
+}
+
+.platform-pill .icon {
+  width: 13px;
+  height: 13px;
+}
+
 .wallet-btn {
   width: 100%;
   justify-content: flex-start;
@@ -373,6 +445,10 @@ img {
 
 @media (max-width: 760px) {
   .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-workspace {
     grid-template-columns: 1fr;
   }
 

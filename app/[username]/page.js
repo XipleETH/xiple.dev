@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getIconBySlug } from "@/lib/constants";
+import { PLATFORM_OPTIONS, getIconBySlug } from "@/lib/constants";
+import { parseProfilePlatforms } from "@/lib/profile-platforms";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+
+const PROFILE_PLATFORM_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
 
 function renderLinkRow(link) {
   const icon = getIconBySlug(link.platform);
@@ -64,6 +67,10 @@ export default async function PublicProfilePage({ params }) {
 
   const socialLinks = (links || []).filter((link) => link.kind === "social");
   const projectLinks = (links || []).filter((link) => link.kind !== "social");
+  const profilePlatforms = parseProfilePlatforms(profile.tagline).filter((entry) =>
+    PROFILE_PLATFORM_SET.has(entry)
+  );
+  const legacyTagline = profilePlatforms.length === 0 ? profile.tagline : null;
 
   return (
     <main className="profile-shell">
@@ -77,7 +84,27 @@ export default async function PublicProfilePage({ params }) {
           </div>
 
           <h1 className="profile-name">{profile.display_name || profile.username}</h1>
-          {profile.tagline ? <p className="profile-tagline">{profile.tagline}</p> : null}
+          {legacyTagline ? <p className="profile-tagline">{legacyTagline}</p> : null}
+          {profilePlatforms.length > 0 ? (
+            <div className="profile-platforms">
+              {profilePlatforms.map((entry) => {
+                const icon = getIconBySlug(entry);
+                return (
+                  <span key={entry} className="platform-chip">
+                    {icon?.icon ? (
+                      <img
+                        className={`icon${icon.mono ? " mono" : ""}`}
+                        src={icon.icon}
+                        alt=""
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                    <span>{entry}</span>
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
           {profile.bio ? <p className="profile-bio">{profile.bio}</p> : null}
         </div>
 
