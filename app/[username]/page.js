@@ -45,11 +45,8 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function PublicProfilePage({ params, searchParams }) {
+export default async function PublicProfilePage({ params }) {
   const { username } = await params;
-  const query = await searchParams;
-  const message = query?.message;
-  const error = query?.error;
   const normalizedUsername = String(username || "").toLowerCase();
 
   const supabase = await createClient();
@@ -97,8 +94,6 @@ export default async function PublicProfilePage({ params, searchParams }) {
       ) : null}
 
       <section className="card profile-card">
-        {isOwner && message ? <p className="notice ok">{message}</p> : null}
-        {isOwner && error ? <p className="notice err">{error}</p> : null}
 
         <div className="profile-head">
           <div className="avatar-wrap">

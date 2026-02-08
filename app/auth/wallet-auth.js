@@ -135,7 +135,7 @@ export default function WalletAuth({
   const router = useRouter();
   const supabase = createClient();
   const [pendingWallet, setPendingWallet] = useState("");
-  const [message, setMessage] = useState(initialMessage || "");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState(initialError || "");
 
   async function signInWithEvm(walletId) {
@@ -233,7 +233,6 @@ export default function WalletAuth({
       </h1>
       <p className="page-sub">Use Base, MetaMask, Trust Wallet or Phantom to edit your profile.</p>
 
-      {message ? <p className="notice ok">{message}</p> : null}
       {error ? <p className="notice err">{error}</p> : null}
 
       <div className="stack" style={{ marginTop: "12px" }}>

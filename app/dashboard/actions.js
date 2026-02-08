@@ -141,24 +141,7 @@ function normalizeReturnPath(value, fallback = "/") {
   if (!path.startsWith("/") || path.startsWith("//")) {
     return fallback;
   }
-  return path;
-}
-
-function buildRedirectPath(path, { message, error } = {}) {
-  const normalized = normalizeReturnPath(path);
-  const [pathname, query = ""] = normalized.split("?");
-  const search = new URLSearchParams(query);
-
-  if (message) {
-    search.set("message", message);
-  }
-
-  if (error) {
-    search.set("error", error);
-  }
-
-  const nextQuery = search.toString();
-  return nextQuery ? `${pathname}?${nextQuery}` : pathname;
+  return path.split("?")[0] || fallback;
 }
 
 async function resolveNextLinkPosition(supabase, profileId) {
@@ -183,7 +166,7 @@ async function requireUserProfile(supabase) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect(buildRedirectPath("/", { error: "Connect wallet first" }));
+    redirect("/");
   }
 
   const { data: profile } = await supabase
@@ -195,7 +178,7 @@ async function requireUserProfile(supabase) {
   if (!profile) {
     const { error } = await supabase.from("profiles").insert({ id: user.id });
     if (error) {
-      redirect(buildRedirectPath("/", { error: error.message }));
+      redirect("/");
     }
   }
 
@@ -219,15 +202,11 @@ export async function saveProfileAction(formData) {
 
   if (username) {
     if (!USERNAME_REGEX.test(username)) {
-      redirect(
-        buildRedirectPath(returnPath, {
-          error: "Username must be 3-30 chars using lowercase, numbers, underscore"
-        })
-      );
+      redirect(returnPath);
     }
 
     if (RESERVED_USERNAMES.has(username)) {
-      redirect(buildRedirectPath(returnPath, { error: "This username is reserved" }));
+      redirect(returnPath);
     }
   }
 
@@ -245,7 +224,7 @@ export async function saveProfileAction(formData) {
         prefix: "avatar"
       });
     } catch (error) {
-      redirect(buildRedirectPath(returnPath, { error: error.message || "Avatar upload failed" }));
+      redirect(returnPath);
     }
   }
 
@@ -263,9 +242,9 @@ export async function saveProfileAction(formData) {
   if (error) {
     const duplicate = error.message.toLowerCase().includes("duplicate") || error.code === "23505";
     if (duplicate) {
-      redirect(buildRedirectPath(returnPath, { error: "Username already taken" }));
+      redirect(returnPath);
     }
-    redirect(buildRedirectPath(returnPath, { error: error.message }));
+    redirect(returnPath);
   }
 
   if (isXipleProfile) {
@@ -275,7 +254,7 @@ export async function saveProfileAction(formData) {
       .eq("profile_id", user.id);
 
     if (countError) {
-      redirect(buildRedirectPath(returnPath, { error: countError.message }));
+      redirect(returnPath);
     }
 
     if ((count || 0) === 0) {
@@ -291,13 +270,13 @@ export async function saveProfileAction(formData) {
 
       const { error: seedError } = await supabase.from("profile_links").insert(rows);
       if (seedError) {
-        redirect(buildRedirectPath(returnPath, { error: seedError.message }));
+        redirect(returnPath);
       }
     }
   }
 
   const nextPath = username ? `/${username}` : returnPath;
-  redirect(buildRedirectPath(nextPath, { message: "Profile saved" }));
+  redirect(nextPath);
 }
 
 export async function addLinkAction(formData) {
@@ -312,14 +291,14 @@ export async function addLinkAction(formData) {
   const imageFile = getFileFromForm(formData, "link_image_file");
 
   if (!label || !url) {
-    redirect(buildRedirectPath(returnPath, { error: "Link label and URL are required" }));
+    redirect(returnPath);
   }
 
   let position = 0;
   try {
     position = await resolveNextLinkPosition(supabase, user.id);
   } catch (error) {
-    redirect(buildRedirectPath(returnPath, { error: error.message }));
+    redirect(returnPath);
   }
 
   if (imageFile) {
@@ -331,7 +310,7 @@ export async function addLinkAction(formData) {
         prefix: "link"
       });
     } catch (error) {
-      redirect(buildRedirectPath(returnPath, { error: error.message || "Link image upload failed" }));
+      redirect(returnPath);
     }
   }
 
@@ -346,10 +325,10 @@ export async function addLinkAction(formData) {
   });
 
   if (error) {
-    redirect(buildRedirectPath(returnPath, { error: error.message }));
+    redirect(returnPath);
   }
 
-  redirect(buildRedirectPath(returnPath, { message: "Link added" }));
+  redirect(returnPath);
 }
 
 export async function updateLinkAction(formData) {
@@ -367,7 +346,7 @@ export async function updateLinkAction(formData) {
   const isActive = String(formData.get("is_active") || "") === "on";
 
   if (!id || !label || !url) {
-    redirect(buildRedirectPath(returnPath, { error: "Missing link fields" }));
+    redirect(returnPath);
   }
 
   if (imageFile) {
@@ -379,7 +358,7 @@ export async function updateLinkAction(formData) {
         prefix: "link"
       });
     } catch (error) {
-      redirect(buildRedirectPath(returnPath, { error: error.message || "Link image upload failed" }));
+      redirect(returnPath);
     }
   }
 
@@ -402,10 +381,10 @@ export async function updateLinkAction(formData) {
     .eq("profile_id", user.id);
 
   if (error) {
-    redirect(buildRedirectPath(returnPath, { error: error.message }));
+    redirect(returnPath);
   }
 
-  redirect(buildRedirectPath(returnPath, { message: "Link updated" }));
+  redirect(returnPath);
 }
 
 export async function deleteLinkAction(formData) {
@@ -415,16 +394,16 @@ export async function deleteLinkAction(formData) {
 
   const id = String(formData.get("id") || "").trim();
   if (!id) {
-    redirect(buildRedirectPath(returnPath, { error: "Missing link id" }));
+    redirect(returnPath);
   }
 
   const { error } = await supabase.from("profile_links").delete().eq("id", id).eq("profile_id", user.id);
 
   if (error) {
-    redirect(buildRedirectPath(returnPath, { error: error.message }));
+    redirect(returnPath);
   }
 
-  redirect(buildRedirectPath(returnPath, { message: "Link deleted" }));
+  redirect(returnPath);
 }
 
 export async function signOutAction() {

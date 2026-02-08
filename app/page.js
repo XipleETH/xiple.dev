@@ -5,11 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage({ searchParams }) {
-  const params = await searchParams;
-  const message = params?.message;
-  const error = params?.error;
-
+export default async function HomePage() {
   const supabase = await createClient();
   const {
     data: { user }
@@ -70,9 +66,6 @@ export default async function HomePage({ searchParams }) {
           </button>
         </form>
       </header>
-
-      {message ? <p className="notice ok">{message}</p> : null}
-      {error ? <p className="notice err">{error}</p> : null}
 
       <DashboardEditor profile={profile} links={links || []} userId={user.id} returnPath="/" />
     </main>
