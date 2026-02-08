@@ -127,7 +127,6 @@ const WALLET_BUTTONS = [
 ];
 
 export default function WalletAuth({
-  initialMessage,
   initialError,
   redirectTo = "/",
   embedded = false
@@ -135,7 +134,6 @@ export default function WalletAuth({
   const router = useRouter();
   const supabase = createClient();
   const [pendingWallet, setPendingWallet] = useState("");
-  const [message, setMessage] = useState("");
   const [error, setError] = useState(initialError || "");
 
   async function signInWithEvm(walletId) {
@@ -206,7 +204,6 @@ export default function WalletAuth({
   async function connectWallet(walletId, type) {
     setPendingWallet(walletId);
     setError("");
-    setMessage("");
 
     try {
       if (type === "solana") {

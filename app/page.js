@@ -26,7 +26,7 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <WalletAuth initialMessage={message} initialError={error} redirectTo="/" embedded />
+        <WalletAuth redirectTo="/" embedded />
       </main>
     );
   }

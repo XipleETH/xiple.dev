@@ -94,7 +94,6 @@ export default async function PublicProfilePage({ params }) {
       ) : null}
 
       <section className="card profile-card">
-
         <div className="profile-head">
           <div className="avatar-wrap">
             <img
