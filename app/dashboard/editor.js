@@ -311,7 +311,7 @@ export default function DashboardEditor({ profile, links }) {
             })
           ) : null}
 
-          <form action={addLinkAction} className="card link-editor-card">
+          <form action={addLinkAction} className="card link-editor-card" encType="multipart/form-data">
             <div className="link-row-form">
               <input className="input" name="label" placeholder="Project name" required maxLength={120} />
               <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
