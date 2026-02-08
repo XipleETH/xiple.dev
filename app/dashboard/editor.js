@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   addLinkAction,
@@ -15,17 +15,26 @@ const PLATFORM_VALUE_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value))
 const SOCIAL_ONLY_OPTIONS = SOCIAL_OPTIONS.filter((entry) => !PLATFORM_VALUE_SET.has(entry.value));
 const LINK_PLATFORM_OPTIONS = [...PLATFORM_OPTIONS, ...SOCIAL_ONLY_OPTIONS];
 
-function getOptionLabel(options, value) {
-  return options.find((entry) => entry.value === value)?.label || value;
-}
-
-function SlotControl({ value, options, placeholder, compact = false, onChange }) {
+function PlatformSlot({
+  value,
+  options,
+  open,
+  onToggleOpen,
+  onSelect,
+  onRemove,
+  titleWhenEmpty = "Add platform"
+}) {
   const icon = value ? getIconBySlug(value) : null;
-  const label = value ? getOptionLabel(options, value) : placeholder;
 
   return (
-    <label className={`slot-control${compact ? " compact" : ""}${value ? " filled" : ""}`}>
-      <span className="slot-content">
+    <div className="profile-slot-wrap">
+      <button
+        type="button"
+        className={`profile-slot-btn${value ? " filled" : ""}`}
+        onClick={() => onToggleOpen(!open)}
+        aria-label={value ? `Change platform ${value}` : titleWhenEmpty}
+        title={value ? `Change ${value}` : titleWhenEmpty}
+      >
         {icon?.icon ? (
           <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
         ) : (
@@ -33,22 +42,45 @@ function SlotControl({ value, options, placeholder, compact = false, onChange })
             +
           </span>
         )}
-        <span className="slot-text">{label}</span>
-      </span>
+      </button>
 
-      <select
-        className="slot-select"
-        value={value}
-        onChange={(event) => onChange(String(event.target.value || ""))}
-      >
-        <option value="">{placeholder}</option>
-        {options.map((entry) => (
-          <option key={entry.value} value={entry.value}>
-            {entry.label}
-          </option>
-        ))}
-      </select>
-    </label>
+      {open ? (
+        <div className="profile-slot-menu">
+          {options.map((entry) => {
+            const optionIcon = getIconBySlug(entry.value);
+            return (
+              <button
+                key={entry.value}
+                type="button"
+                className={`profile-slot-option${value === entry.value ? " selected" : ""}`}
+                title={entry.label}
+                aria-label={entry.label}
+                onClick={() => {
+                  onSelect(entry.value);
+                  onToggleOpen(false);
+                }}
+              >
+                {optionIcon?.icon ? (
+                  <img className={`icon${optionIcon.mono ? " mono" : ""}`} src={optionIcon.icon} alt="" aria-hidden="true" />
+                ) : null}
+              </button>
+            );
+          })}
+          {value ? (
+            <button
+              type="button"
+              className="profile-slot-option remove"
+              onClick={() => {
+                onRemove?.();
+                onToggleOpen(false);
+              }}
+            >
+              Remove
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -56,6 +88,7 @@ export default function DashboardEditor({ profile, links }) {
   const profileFormRef = useRef(null);
   const avatarFileInputRef = useRef(null);
   const profileSlotHostRef = useRef(null);
+  const linkSlotHostRef = useRef(null);
 
   const [username, setUsername] = useState(profile?.username ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
@@ -65,13 +98,14 @@ export default function DashboardEditor({ profile, links }) {
   );
   const [newLinkPlatform, setNewLinkPlatform] = useState("");
   const [openProfileSlot, setOpenProfileSlot] = useState(null);
+  const [openLinkSlot, setOpenLinkSlot] = useState("");
   const [linkPlatformById, setLinkPlatformById] = useState(() =>
     Object.fromEntries((links || []).map((entry) => [entry.id, entry.platform || ""]))
   );
 
   const previewUsername = String(username || "").trim().replace(/^@/, "").toLowerCase() || "yourname";
   const previewAvatar = String(avatarUrl || "").trim() || "/assets/profile-photo.jpg";
-  const profileSlots = useMemo(() => [...selectedPlatforms, ""], [selectedPlatforms]);
+  const profileSlots = [...selectedPlatforms, ""];
   const visibleLinks = links || [];
 
   function handleProfileSlotChange(index, nextValue) {
@@ -104,12 +138,12 @@ export default function DashboardEditor({ profile, links }) {
 
   useEffect(() => {
     function handleDocumentPointer(event) {
-      if (!profileSlotHostRef.current) {
-        return;
+      if (profileSlotHostRef.current && !profileSlotHostRef.current.contains(event.target)) {
+        setOpenProfileSlot(null);
       }
 
-      if (!profileSlotHostRef.current.contains(event.target)) {
-        setOpenProfileSlot(null);
+      if (linkSlotHostRef.current && !linkSlotHostRef.current.contains(event.target)) {
+        setOpenLinkSlot("");
       }
     }
 
@@ -133,7 +167,7 @@ export default function DashboardEditor({ profile, links }) {
     profileFormRef.current?.requestSubmit();
   }
 
-  function handleExistingLinkPlatformChange(linkId, value) {
+  function setExistingLinkPlatform(linkId, value) {
     setLinkPlatformById((current) => ({
       ...current,
       [linkId]: value
@@ -189,71 +223,20 @@ export default function DashboardEditor({ profile, links }) {
 
           <div ref={profileSlotHostRef} className="profile-slot-list">
             {profileSlots.map((value, index) => {
-              const icon = value ? getIconBySlug(value) : null;
               const available = PLATFORM_OPTIONS.filter(
                 (entry) => entry.value === value || !selectedPlatforms.includes(entry.value)
               );
 
               return (
-                <div key={`profile-slot-${index}-${value || "empty"}`} className="profile-slot-wrap">
-                  <button
-                    type="button"
-                    className={`profile-slot-btn${value ? " filled" : ""}`}
-                    onClick={() => setOpenProfileSlot((current) => (current === index ? null : index))}
-                    aria-label={value ? `Change platform ${value}` : "Add platform"}
-                    title={value ? `Change ${value}` : "Add platform"}
-                  >
-                    {icon?.icon ? (
-                      <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
-                    ) : (
-                      <span className="slot-plus" aria-hidden="true">
-                        +
-                      </span>
-                    )}
-                  </button>
-
-                  {openProfileSlot === index ? (
-                    <div className="profile-slot-menu">
-                      {available.map((entry) => {
-                        const optionIcon = getIconBySlug(entry.value);
-                        return (
-                          <button
-                            key={entry.value}
-                            type="button"
-                            className={`profile-slot-option${value === entry.value ? " selected" : ""}`}
-                            title={entry.label}
-                            aria-label={entry.label}
-                            onClick={() => {
-                              handleProfileSlotChange(index, entry.value);
-                              setOpenProfileSlot(null);
-                            }}
-                          >
-                            {optionIcon?.icon ? (
-                              <img
-                                className={`icon${optionIcon.mono ? " mono" : ""}`}
-                                src={optionIcon.icon}
-                                alt=""
-                                aria-hidden="true"
-                              />
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                      {value ? (
-                        <button
-                          type="button"
-                          className="profile-slot-option remove"
-                          onClick={() => {
-                            handleProfileSlotChange(index, "");
-                            setOpenProfileSlot(null);
-                          }}
-                        >
-                          Remove
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
+                <PlatformSlot
+                  key={`profile-slot-${index}-${value || "empty"}`}
+                  value={value}
+                  options={available}
+                  open={openProfileSlot === index}
+                  onToggleOpen={(nextOpen) => setOpenProfileSlot(nextOpen ? index : null)}
+                  onSelect={(nextValue) => handleProfileSlotChange(index, nextValue)}
+                  onRemove={() => handleProfileSlotChange(index, "")}
+                />
               );
             })}
           </div>
@@ -271,44 +254,29 @@ export default function DashboardEditor({ profile, links }) {
       <section className="stack">
         <p className="kicker">Links</p>
 
-        {visibleLinks.length === 0 ? (
-          <p className="empty">No links yet. Add your first one below.</p>
-        ) : (
-          <div className="stack">
-            {visibleLinks.map((link) => {
+        <div ref={linkSlotHostRef} className="stack">
+          {visibleLinks.length > 0 ? (
+            visibleLinks.map((link) => {
               const selectedPlatform = linkPlatformById[link.id] ?? link.platform ?? "";
+              const slotKey = `link-${link.id}`;
 
               return (
                 <article key={link.id} className="card link-editor-card">
-                  <form action={updateLinkAction} className="stack" encType="multipart/form-data">
+                  <form action={updateLinkAction} className="link-row-form">
                     <input type="hidden" name="id" value={link.id} />
-
                     <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
-
                     <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
-                    <input
-                      className="input"
-                      name="image_url"
-                      defaultValue={link.image_url ?? ""}
-                      placeholder="Image URL (optional)"
-                      maxLength={500}
-                    />
-                    <label className="file-row">
-                      <span>Upload link image</span>
-                      <input className="file-input" type="file" name="link_image_file" accept="image/*" />
-                    </label>
 
-                    {link.image_url ? (
-                      <img className="link-image-preview" src={link.image_url} alt={`${link.label} preview`} />
-                    ) : null}
-
-                    <SlotControl
+                    <PlatformSlot
                       value={selectedPlatform}
                       options={LINK_PLATFORM_OPTIONS}
-                      placeholder="Choose platform"
-                      compact
-                      onChange={(nextValue) => handleExistingLinkPlatformChange(link.id, nextValue)}
+                      open={openLinkSlot === slotKey}
+                      onToggleOpen={(nextOpen) => setOpenLinkSlot(nextOpen ? slotKey : "")}
+                      onSelect={(nextValue) => setExistingLinkPlatform(link.id, nextValue)}
+                      onRemove={() => setExistingLinkPlatform(link.id, "")}
+                      titleWhenEmpty="Choose platform"
                     />
+
                     <input type="hidden" name="platform" value={selectedPlatform} />
 
                     <label className="link-active-row">
@@ -316,48 +284,47 @@ export default function DashboardEditor({ profile, links }) {
                       Active
                     </label>
 
-                    <div className="toolbar">
-                      <button className="btn" type="submit">
-                        Save
-                      </button>
-                    </div>
-                  </form>
-
-                  <form action={deleteLinkAction}>
-                    <input type="hidden" name="id" value={link.id} />
-                    <button className="btn btn-danger" type="submit">
-                      Delete
+                    <button className="btn" type="submit">
+                      Save
                     </button>
                   </form>
+
+                  <div className="toolbar">
+                    <form action={deleteLinkAction}>
+                      <input type="hidden" name="id" value={link.id} />
+                      <button className="btn btn-danger" type="submit">
+                        Delete
+                      </button>
+                    </form>
+                  </div>
                 </article>
               );
-            })}
-          </div>
-        )}
+            })
+          ) : null}
 
-        <form action={addLinkAction} className="card link-editor-card stack" encType="multipart/form-data">
-          <p className="kicker">New Link</p>
-          <input className="input" name="label" placeholder="Darkest Rumble" required maxLength={120} />
-          <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
-          <input className="input" name="image_url" placeholder="Image URL (optional)" maxLength={500} />
-          <label className="file-row">
-            <span>Upload link image</span>
-            <input className="file-input" type="file" name="link_image_file" accept="image/*" />
-          </label>
+          <form action={addLinkAction} className="card link-editor-card">
+            <div className="link-row-form">
+              <input className="input" name="label" placeholder="Project name" required maxLength={120} />
+              <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
 
-          <SlotControl
-            value={newLinkPlatform}
-            options={LINK_PLATFORM_OPTIONS}
-            placeholder="Choose platform"
-            compact
-            onChange={setNewLinkPlatform}
-          />
-          <input type="hidden" name="platform" value={newLinkPlatform} />
+              <PlatformSlot
+                value={newLinkPlatform}
+                options={LINK_PLATFORM_OPTIONS}
+                open={openLinkSlot === "new"}
+                onToggleOpen={(nextOpen) => setOpenLinkSlot(nextOpen ? "new" : "")}
+                onSelect={setNewLinkPlatform}
+                onRemove={() => setNewLinkPlatform("")}
+                titleWhenEmpty="Choose platform"
+              />
 
-          <button className="btn btn-primary" type="submit">
-            Add link
-          </button>
-        </form>
+              <input type="hidden" name="platform" value={newLinkPlatform} />
+
+              <button className="btn btn-primary" type="submit">
+                Add
+              </button>
+            </div>
+          </form>
+        </div>
       </section>
     </section>
   );

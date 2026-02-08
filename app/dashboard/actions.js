@@ -330,7 +330,8 @@ export async function updateLinkAction(formData) {
   const label = String(formData.get("label") || "").trim();
   const url = String(formData.get("url") || "").trim();
   const platform = normalizePlatform(formData.get("platform"));
-  let imageUrl = normalizeImageUrl(formData.get("image_url"));
+  const hasImageUrlField = formData.has("image_url");
+  let imageUrl = hasImageUrlField ? normalizeImageUrl(formData.get("image_url")) : null;
   const imageFile = getFileFromForm(formData, "link_image_file");
   const isActive = String(formData.get("is_active") || "") === "on";
 
@@ -351,16 +352,21 @@ export async function updateLinkAction(formData) {
     }
   }
 
+  const updatePayload = {
+    label,
+    url,
+    kind: resolveLinkKind(platform),
+    platform: platform || null,
+    is_active: isActive
+  };
+
+  if (hasImageUrlField || imageFile) {
+    updatePayload.image_url = imageUrl;
+  }
+
   const { error } = await supabase
     .from("profile_links")
-    .update({
-      label,
-      url,
-      kind: resolveLinkKind(platform),
-      platform: platform || null,
-      image_url: imageUrl,
-      is_active: isActive
-    })
+    .update(updatePayload)
     .eq("id", id)
     .eq("profile_id", user.id);
 
