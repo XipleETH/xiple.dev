@@ -136,6 +136,31 @@ function resolveLinkKind(platform) {
   return "project";
 }
 
+function normalizeReturnPath(value, fallback = "/") {
+  const path = String(value || "").trim();
+  if (!path.startsWith("/") || path.startsWith("//")) {
+    return fallback;
+  }
+  return path;
+}
+
+function buildRedirectPath(path, { message, error } = {}) {
+  const normalized = normalizeReturnPath(path);
+  const [pathname, query = ""] = normalized.split("?");
+  const search = new URLSearchParams(query);
+
+  if (message) {
+    search.set("message", message);
+  }
+
+  if (error) {
+    search.set("error", error);
+  }
+
+  const nextQuery = search.toString();
+  return nextQuery ? `${pathname}?${nextQuery}` : pathname;
+}
+
 async function resolveNextLinkPosition(supabase, profileId) {
   const { data, error } = await supabase
     .from("profile_links")
@@ -158,7 +183,7 @@ async function requireUserProfile(supabase) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect("/auth");
+    redirect(buildRedirectPath("/", { error: "Connect wallet first" }));
   }
 
   const { data: profile } = await supabase
@@ -170,7 +195,7 @@ async function requireUserProfile(supabase) {
   if (!profile) {
     const { error } = await supabase.from("profiles").insert({ id: user.id });
     if (error) {
-      redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+      redirect(buildRedirectPath("/", { error: error.message }));
     }
   }
 
@@ -180,6 +205,7 @@ async function requireUserProfile(supabase) {
 export async function saveProfileAction(formData) {
   const supabase = await createClient();
   const user = await requireUserProfile(supabase);
+  const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
   const bio = String(formData.get("bio") || "").trim();
   let avatarUrl = String(formData.get("avatar_url") || "").trim();
@@ -194,12 +220,14 @@ export async function saveProfileAction(formData) {
   if (username) {
     if (!USERNAME_REGEX.test(username)) {
       redirect(
-        "/dashboard?error=Username%20must%20be%203-30%20chars%20using%20lowercase,%20numbers,%20underscore"
+        buildRedirectPath(returnPath, {
+          error: "Username must be 3-30 chars using lowercase, numbers, underscore"
+        })
       );
     }
 
     if (RESERVED_USERNAMES.has(username)) {
-      redirect("/dashboard?error=This%20username%20is%20reserved");
+      redirect(buildRedirectPath(returnPath, { error: "This username is reserved" }));
     }
   }
 
@@ -217,7 +245,7 @@ export async function saveProfileAction(formData) {
         prefix: "avatar"
       });
     } catch (error) {
-      redirect(`/dashboard?error=${encodeURIComponent(error.message || "Avatar upload failed")}`);
+      redirect(buildRedirectPath(returnPath, { error: error.message || "Avatar upload failed" }));
     }
   }
 
@@ -235,9 +263,9 @@ export async function saveProfileAction(formData) {
   if (error) {
     const duplicate = error.message.toLowerCase().includes("duplicate") || error.code === "23505";
     if (duplicate) {
-      redirect("/dashboard?error=Username%20already%20taken");
+      redirect(buildRedirectPath(returnPath, { error: "Username already taken" }));
     }
-    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+    redirect(buildRedirectPath(returnPath, { error: error.message }));
   }
 
   if (isXipleProfile) {
@@ -247,7 +275,7 @@ export async function saveProfileAction(formData) {
       .eq("profile_id", user.id);
 
     if (countError) {
-      redirect(`/dashboard?error=${encodeURIComponent(countError.message)}`);
+      redirect(buildRedirectPath(returnPath, { error: countError.message }));
     }
 
     if ((count || 0) === 0) {
@@ -263,17 +291,19 @@ export async function saveProfileAction(formData) {
 
       const { error: seedError } = await supabase.from("profile_links").insert(rows);
       if (seedError) {
-        redirect(`/dashboard?error=${encodeURIComponent(seedError.message)}`);
+        redirect(buildRedirectPath(returnPath, { error: seedError.message }));
       }
     }
   }
 
-  redirect("/dashboard?message=Profile%20saved");
+  const nextPath = username ? `/${username}` : returnPath;
+  redirect(buildRedirectPath(nextPath, { message: "Profile saved" }));
 }
 
 export async function addLinkAction(formData) {
   const supabase = await createClient();
   const user = await requireUserProfile(supabase);
+  const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
   const label = String(formData.get("label") || "").trim();
   const url = String(formData.get("url") || "").trim();
@@ -282,14 +312,14 @@ export async function addLinkAction(formData) {
   const imageFile = getFileFromForm(formData, "link_image_file");
 
   if (!label || !url) {
-    redirect("/dashboard?error=Link%20label%20and%20URL%20are%20required");
+    redirect(buildRedirectPath(returnPath, { error: "Link label and URL are required" }));
   }
 
   let position = 0;
   try {
     position = await resolveNextLinkPosition(supabase, user.id);
   } catch (error) {
-    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+    redirect(buildRedirectPath(returnPath, { error: error.message }));
   }
 
   if (imageFile) {
@@ -301,7 +331,7 @@ export async function addLinkAction(formData) {
         prefix: "link"
       });
     } catch (error) {
-      redirect(`/dashboard?error=${encodeURIComponent(error.message || "Link image upload failed")}`);
+      redirect(buildRedirectPath(returnPath, { error: error.message || "Link image upload failed" }));
     }
   }
 
@@ -316,15 +346,16 @@ export async function addLinkAction(formData) {
   });
 
   if (error) {
-    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+    redirect(buildRedirectPath(returnPath, { error: error.message }));
   }
 
-  redirect("/dashboard?message=Link%20added");
+  redirect(buildRedirectPath(returnPath, { message: "Link added" }));
 }
 
 export async function updateLinkAction(formData) {
   const supabase = await createClient();
   const user = await requireUserProfile(supabase);
+  const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
   const id = String(formData.get("id") || "").trim();
   const label = String(formData.get("label") || "").trim();
@@ -336,7 +367,7 @@ export async function updateLinkAction(formData) {
   const isActive = String(formData.get("is_active") || "") === "on";
 
   if (!id || !label || !url) {
-    redirect("/dashboard?error=Missing%20link%20fields");
+    redirect(buildRedirectPath(returnPath, { error: "Missing link fields" }));
   }
 
   if (imageFile) {
@@ -348,7 +379,7 @@ export async function updateLinkAction(formData) {
         prefix: "link"
       });
     } catch (error) {
-      redirect(`/dashboard?error=${encodeURIComponent(error.message || "Link image upload failed")}`);
+      redirect(buildRedirectPath(returnPath, { error: error.message || "Link image upload failed" }));
     }
   }
 
@@ -371,28 +402,29 @@ export async function updateLinkAction(formData) {
     .eq("profile_id", user.id);
 
   if (error) {
-    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+    redirect(buildRedirectPath(returnPath, { error: error.message }));
   }
 
-  redirect("/dashboard?message=Link%20updated");
+  redirect(buildRedirectPath(returnPath, { message: "Link updated" }));
 }
 
 export async function deleteLinkAction(formData) {
   const supabase = await createClient();
   const user = await requireUserProfile(supabase);
+  const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
   const id = String(formData.get("id") || "").trim();
   if (!id) {
-    redirect("/dashboard?error=Missing%20link%20id");
+    redirect(buildRedirectPath(returnPath, { error: "Missing link id" }));
   }
 
   const { error } = await supabase.from("profile_links").delete().eq("id", id).eq("profile_id", user.id);
 
   if (error) {
-    redirect(`/dashboard?error=${encodeURIComponent(error.message)}`);
+    redirect(buildRedirectPath(returnPath, { error: error.message }));
   }
 
-  redirect("/dashboard?message=Link%20deleted");
+  redirect(buildRedirectPath(returnPath, { message: "Link deleted" }));
 }
 
 export async function signOutAction() {

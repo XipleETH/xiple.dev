@@ -1,9 +1,5 @@
-import WalletAuth from "@/app/auth/wallet-auth";
+import { redirect } from "next/navigation";
 
-export default async function AuthPage({ searchParams }) {
-  const params = await searchParams;
-  const message = params?.message;
-  const error = params?.error;
-
-  return <WalletAuth initialMessage={message} initialError={error} />;
+export default function AuthPage() {
+  redirect("/");
 }

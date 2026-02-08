@@ -736,6 +736,33 @@ img {
   background: linear-gradient(135deg, #ffcb8e, #84f2df 65%, #8ab4ff);
 }
 
+.owner-card {
+  padding: 12px 14px;
+}
+
+.owner-toolbar {
+  margin-top: 8px;
+}
+
+.owner-edit-details {
+  display: grid;
+  gap: 10px;
+}
+
+.owner-edit-summary {
+  list-style: none;
+  width: fit-content;
+}
+
+.owner-edit-summary::-webkit-details-marker {
+  display: none;
+}
+
+.owner-edit-body {
+  display: grid;
+  gap: 8px;
+}
+
 @media (max-width: 760px) {
   .grid-2 {
     grid-template-columns: 1fr;

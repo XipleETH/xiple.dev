@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -127,7 +126,12 @@ const WALLET_BUTTONS = [
   { id: "phantom", label: "Phantom", mark: "P", type: "solana" }
 ];
 
-export default function WalletAuth({ initialMessage, initialError }) {
+export default function WalletAuth({
+  initialMessage,
+  initialError,
+  redirectTo = "/",
+  embedded = false
+}) {
   const router = useRouter();
   const [pendingWallet, setPendingWallet] = useState("");
   const [message, setMessage] = useState(initialMessage || "");
@@ -186,7 +190,7 @@ export default function WalletAuth({ initialMessage, initialError }) {
         await signInWithEvm(walletId);
       }
 
-      router.replace("/dashboard");
+      router.replace(redirectTo);
       router.refresh();
     } catch (authError) {
       setError(parseError(authError));
@@ -195,50 +199,43 @@ export default function WalletAuth({ initialMessage, initialError }) {
     }
   }
 
-  return (
-    <main className="container stack" style={{ maxWidth: "560px" }}>
-      <header className="card topnav">
-        <div className="brand">
-          hubfol<span>.io</span>
-        </div>
-        <Link className="btn" href="/">
-          Back
-        </Link>
-      </header>
+  const content = (
+    <section className="card" style={{ padding: "18px" }}>
+      <p className="kicker">Wallet</p>
+      <h1 className="page-title" style={{ fontSize: "1.8rem", marginTop: "6px" }}>
+        Connect wallet
+      </h1>
+      <p className="page-sub">Use Base, MetaMask, Trust Wallet or Phantom to edit your profile.</p>
 
-      <section className="card" style={{ padding: "18px" }}>
-        <p className="kicker">Auth</p>
-        <h1 className="page-title" style={{ fontSize: "1.8rem", marginTop: "6px" }}>
-          Connect wallet
-        </h1>
-        <p className="page-sub">
-          Use Base, MetaMask, Trust Wallet or Phantom to access your dashboard.
-        </p>
+      {message ? <p className="notice ok">{message}</p> : null}
+      {error ? <p className="notice err">{error}</p> : null}
 
-        {message ? <p className="notice ok">{message}</p> : null}
-        {error ? <p className="notice err">{error}</p> : null}
+      <div className="stack" style={{ marginTop: "12px" }}>
+        {WALLET_BUTTONS.map((wallet) => (
+          <button
+            key={wallet.id}
+            className="btn wallet-btn"
+            type="button"
+            disabled={Boolean(pendingWallet)}
+            onClick={() => connectWallet(wallet.id, wallet.type)}
+          >
+            <span className="wallet-mark" aria-hidden="true">
+              {wallet.mark}
+            </span>
+            <span>{pendingWallet === wallet.id ? "Connecting..." : `Continue with ${wallet.label}`}</span>
+          </button>
+        ))}
+      </div>
 
-        <div className="stack" style={{ marginTop: "12px" }}>
-          {WALLET_BUTTONS.map((wallet) => (
-            <button
-              key={wallet.id}
-              className="btn wallet-btn"
-              type="button"
-              disabled={Boolean(pendingWallet)}
-              onClick={() => connectWallet(wallet.id, wallet.type)}
-            >
-              <span className="wallet-mark" aria-hidden="true">
-                {wallet.mark}
-              </span>
-              <span>{pendingWallet === wallet.id ? "Connecting..." : `Continue with ${wallet.label}`}</span>
-            </button>
-          ))}
-        </div>
-
-        <p className="help" style={{ marginTop: "10px" }}>
-          If a wallet is not installed, that button will fail until the extension/app is available.
-        </p>
-      </section>
-    </main>
+      <p className="help" style={{ marginTop: "10px" }}>
+        If a wallet is not installed, that button will fail until the extension/app is available.
+      </p>
+    </section>
   );
+
+  if (embedded) {
+    return content;
+  }
+
+  return <main className="container stack" style={{ maxWidth: "560px" }}>{content}</main>;
 }

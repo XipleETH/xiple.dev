@@ -10,10 +10,9 @@ Product base for a profile-link platform with routes like `/username`.
 
 ## Current routes
 
-- `/` marketing/entry page
-- `/auth` wallet login (Base, MetaMask, Trust Wallet, Phantom)
-- `/dashboard` profile + links editor
-- `/:username` public profile page
+- `/` single-page studio (wallet connect + profile/link editor)
+- `/auth` compatibility redirect to `/`
+- `/:username` public profile page (owner can open edit mode when connected)
 
 ## 1) Local setup
 

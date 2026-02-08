@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { signOutAction } from "@/app/dashboard/actions";
+import DashboardEditor from "@/app/dashboard/editor";
 import { PLATFORM_OPTIONS, getIconBySlug } from "@/lib/constants";
 import { parseProfilePlatforms } from "@/lib/profile-platforms";
 import { createClient } from "@/lib/supabase/server";
@@ -45,8 +47,11 @@ export async function generateMetadata({ params }) {
   };
 }
 
-export default async function PublicProfilePage({ params }) {
+export default async function PublicProfilePage({ params, searchParams }) {
   const { username } = await params;
+  const query = await searchParams;
+  const message = query?.message;
+  const error = query?.error;
   const normalizedUsername = String(username || "").toLowerCase();
 
   const supabase = await createClient();
@@ -60,16 +65,24 @@ export default async function PublicProfilePage({ params }) {
     notFound();
   }
 
-  const { data: links } = await supabase
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const isOwner = user?.id === profile.id;
+
+  const linkQuery = supabase
     .from("profile_links")
-    .select("id, label, url, kind, platform, image_url, position")
+    .select("id, label, url, kind, platform, image_url, position, is_active")
     .eq("profile_id", profile.id)
-    .eq("is_active", true)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const socialLinks = (links || []).filter((link) => link.kind === "social");
-  const projectLinks = (links || []).filter((link) => link.kind !== "social");
+  const { data: links } = isOwner ? await linkQuery : await linkQuery.eq("is_active", true);
+
+  const visibleLinks = isOwner ? (links || []).filter((link) => link.is_active !== false) : links || [];
+
+  const socialLinks = visibleLinks.filter((link) => link.kind === "social");
+  const projectLinks = visibleLinks.filter((link) => link.kind !== "social");
   const profilePlatforms = parseProfilePlatforms(profile.tagline).filter((entry) =>
     PROFILE_PLATFORM_SET.has(entry)
   );
@@ -78,6 +91,9 @@ export default async function PublicProfilePage({ params }) {
   return (
     <main className="profile-shell">
       <section className="card profile-card">
+        {isOwner && message ? <p className="notice ok">{message}</p> : null}
+        {isOwner && error ? <p className="notice err">{error}</p> : null}
+
         <div className="profile-head">
           <div className="avatar-wrap">
             <img
@@ -130,6 +146,36 @@ export default async function PublicProfilePage({ params }) {
           </p>
         )}
       </section>
+
+      {isOwner ? (
+        <section className="stack" style={{ marginTop: "12px" }}>
+          <section className="card owner-card">
+            <p className="kicker">Owner mode</p>
+            <div className="toolbar owner-toolbar">
+              <Link className="btn" href="/">
+                Open studio
+              </Link>
+              <form action={signOutAction}>
+                <button className="btn" type="submit">
+                  Disconnect wallet
+                </button>
+              </form>
+            </div>
+          </section>
+
+          <details className="owner-edit-details">
+            <summary className="btn owner-edit-summary">Edit profile</summary>
+            <div className="owner-edit-body">
+              <DashboardEditor
+                profile={profile}
+                links={links || []}
+                userId={profile.id}
+                returnPath={`/${profile.username}`}
+              />
+            </div>
+          </details>
+        </section>
+      ) : null}
 
       <footer style={{ textAlign: "center", marginTop: "12px", color: "#8da4d0", fontSize: "0.78rem" }}>
         <Link className="link-inline" href="/">

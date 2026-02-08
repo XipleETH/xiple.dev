@@ -100,7 +100,7 @@ function getErrorMessage(error) {
   return String(error?.message || "Could not upload image.");
 }
 
-export default function DashboardEditor({ profile, links, userId }) {
+export default function DashboardEditor({ profile, links, userId, returnPath = "/" }) {
   const supabase = createClient();
   const profileFormRef = useRef(null);
   const avatarFileInputRef = useRef(null);
@@ -321,6 +321,7 @@ export default function DashboardEditor({ profile, links, userId }) {
           />
 
           <input type="hidden" name="avatar_url" value={avatarUrl} />
+          <input type="hidden" name="return_path" value={returnPath} />
 
           <div ref={profileSlotHostRef} className="profile-slot-list">
             {profileSlots.map((value, index) => {
@@ -365,6 +366,7 @@ export default function DashboardEditor({ profile, links, userId }) {
                 <article key={link.id} className="card link-editor-card">
                   <form action={updateLinkAction} className="link-row-form" encType="multipart/form-data">
                     <input type="hidden" name="id" value={link.id} />
+                    <input type="hidden" name="return_path" value={returnPath} />
                     <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
                     <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
 
@@ -415,6 +417,7 @@ export default function DashboardEditor({ profile, links, userId }) {
                   <div className="toolbar">
                     <form action={deleteLinkAction}>
                       <input type="hidden" name="id" value={link.id} />
+                      <input type="hidden" name="return_path" value={returnPath} />
                       <button className="btn btn-danger" type="submit">
                         Delete
                       </button>
@@ -427,6 +430,7 @@ export default function DashboardEditor({ profile, links, userId }) {
 
           <form action={addLinkAction} className="card link-editor-card" encType="multipart/form-data">
             <div className="link-row-form">
+              <input type="hidden" name="return_path" value={returnPath} />
               <input className="input" name="label" placeholder="Project name" required maxLength={120} />
               <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
 
