@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   addLinkAction,
@@ -55,6 +55,7 @@ function SlotControl({ value, options, placeholder, compact = false, onChange })
 export default function DashboardEditor({ profile, links }) {
   const profileFormRef = useRef(null);
   const avatarFileInputRef = useRef(null);
+  const profileSlotHostRef = useRef(null);
 
   const [username, setUsername] = useState(profile?.username ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
@@ -63,6 +64,7 @@ export default function DashboardEditor({ profile, links }) {
     parseProfilePlatforms(profile?.tagline).filter((entry) => PLATFORM_VALUE_SET.has(entry))
   );
   const [newLinkPlatform, setNewLinkPlatform] = useState("");
+  const [openProfileSlot, setOpenProfileSlot] = useState(null);
   const [linkPlatformById, setLinkPlatformById] = useState(() =>
     Object.fromEntries((links || []).map((entry) => [entry.id, entry.platform || ""]))
   );
@@ -106,6 +108,23 @@ export default function DashboardEditor({ profile, links }) {
       return list;
     });
   }
+
+  useEffect(() => {
+    function handleDocumentPointer(event) {
+      if (!profileSlotHostRef.current) {
+        return;
+      }
+
+      if (!profileSlotHostRef.current.contains(event.target)) {
+        setOpenProfileSlot(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleDocumentPointer);
+    return () => {
+      document.removeEventListener("mousedown", handleDocumentPointer);
+    };
+  }, []);
 
   function handleAvatarPickClick() {
     avatarFileInputRef.current?.click();
@@ -191,17 +210,74 @@ export default function DashboardEditor({ profile, links }) {
             </div>
           ) : null}
 
-          <div className="slot-list">
-            {profileSlots.map((value, index) => (
-              <SlotControl
-                key={`profile-slot-${index}-${value || "empty"}`}
-                value={value}
-                options={PLATFORM_OPTIONS}
-                placeholder="Add platform"
-                compact
-                onChange={(nextValue) => handleProfileSlotChange(index, nextValue)}
-              />
-            ))}
+          <div ref={profileSlotHostRef} className="profile-slot-list">
+            {profileSlots.map((value, index) => {
+              const icon = value ? getIconBySlug(value) : null;
+              const available = PLATFORM_OPTIONS.filter(
+                (entry) => entry.value === value || !selectedPlatforms.includes(entry.value)
+              );
+
+              return (
+                <div key={`profile-slot-${index}-${value || "empty"}`} className="profile-slot-wrap">
+                  <button
+                    type="button"
+                    className={`profile-slot-btn${value ? " filled" : ""}`}
+                    onClick={() => setOpenProfileSlot((current) => (current === index ? null : index))}
+                    aria-label={value ? `Change platform ${value}` : "Add platform"}
+                    title={value ? `Change ${value}` : "Add platform"}
+                  >
+                    {icon?.icon ? (
+                      <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
+                    ) : (
+                      <span className="slot-plus" aria-hidden="true">
+                        +
+                      </span>
+                    )}
+                  </button>
+
+                  {openProfileSlot === index ? (
+                    <div className="profile-slot-menu">
+                      {available.map((entry) => {
+                        const optionIcon = getIconBySlug(entry.value);
+                        return (
+                          <button
+                            key={entry.value}
+                            type="button"
+                            className={`profile-slot-option${value === entry.value ? " selected" : ""}`}
+                            onClick={() => {
+                              handleProfileSlotChange(index, entry.value);
+                              setOpenProfileSlot(null);
+                            }}
+                          >
+                            {optionIcon?.icon ? (
+                              <img
+                                className={`icon${optionIcon.mono ? " mono" : ""}`}
+                                src={optionIcon.icon}
+                                alt=""
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                            <span>{entry.label}</span>
+                          </button>
+                        );
+                      })}
+                      {value ? (
+                        <button
+                          type="button"
+                          className="profile-slot-option remove"
+                          onClick={() => {
+                            handleProfileSlotChange(index, "");
+                            setOpenProfileSlot(null);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
 
           <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
