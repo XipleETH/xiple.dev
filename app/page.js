@@ -1,16 +1,9 @@
-import Link from "next/link";
-
 import WalletAuth from "@/app/auth/wallet-auth";
 import { signOutAction } from "@/app/dashboard/actions";
 import DashboardEditor from "@/app/dashboard/editor";
-import { env } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
-
-function normalizeBaseUrl(url) {
-  return String(url || "").replace(/\/$/, "");
-}
 
 export default async function HomePage({ searchParams }) {
   const params = await searchParams;
@@ -65,32 +58,17 @@ export default async function HomePage({ searchParams }) {
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
-  const profilePath = profile?.username ? `/${profile.username}` : null;
-  const profileUrl = profilePath ? `${normalizeBaseUrl(env.NEXT_PUBLIC_APP_URL)}${profilePath}` : null;
-
   return (
     <main className="profile-shell stack">
-      <header className="card topnav">
+      <header className="card topnav topnav-simple">
         <div className="brand">
           hubfol<span>.io</span>
         </div>
-        <div className="toolbar">
-          {profilePath ? (
-            <Link className="btn" href={profilePath}>
-              Open {profilePath}
-            </Link>
-          ) : null}
-          {profileUrl ? (
-            <a className="btn" href={profileUrl} target="_blank" rel="noreferrer noopener">
-              Public page
-            </a>
-          ) : null}
-          <form action={signOutAction}>
-            <button className="btn" type="submit">
-              Disconnect
-            </button>
-          </form>
-        </div>
+        <form action={signOutAction}>
+          <button className="icon-btn" type="submit" aria-label="Disconnect wallet" title="Disconnect wallet">
+            <img src="/assets/icons/wallet.svg" alt="" aria-hidden="true" />
+          </button>
+        </form>
       </header>
 
       {message ? <p className="notice ok">{message}</p> : null}

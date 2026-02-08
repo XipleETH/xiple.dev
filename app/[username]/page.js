@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { signOutAction } from "@/app/dashboard/actions";
-import DashboardEditor from "@/app/dashboard/editor";
 import { PLATFORM_OPTIONS, getIconBySlug } from "@/lib/constants";
 import { parseProfilePlatforms } from "@/lib/profile-platforms";
 import { createClient } from "@/lib/supabase/server";
@@ -90,6 +88,14 @@ export default async function PublicProfilePage({ params, searchParams }) {
 
   return (
     <main className="profile-shell">
+      {isOwner ? (
+        <div className="profile-owner-row">
+          <Link className="btn" href="/">
+            Edit profile
+          </Link>
+        </div>
+      ) : null}
+
       <section className="card profile-card">
         {isOwner && message ? <p className="notice ok">{message}</p> : null}
         {isOwner && error ? <p className="notice err">{error}</p> : null}
@@ -146,36 +152,6 @@ export default async function PublicProfilePage({ params, searchParams }) {
           </p>
         )}
       </section>
-
-      {isOwner ? (
-        <section className="stack" style={{ marginTop: "12px" }}>
-          <section className="card owner-card">
-            <p className="kicker">Owner mode</p>
-            <div className="toolbar owner-toolbar">
-              <Link className="btn" href="/">
-                Open studio
-              </Link>
-              <form action={signOutAction}>
-                <button className="btn" type="submit">
-                  Disconnect wallet
-                </button>
-              </form>
-            </div>
-          </section>
-
-          <details className="owner-edit-details">
-            <summary className="btn owner-edit-summary">Edit profile</summary>
-            <div className="owner-edit-body">
-              <DashboardEditor
-                profile={profile}
-                links={links || []}
-                userId={profile.id}
-                returnPath={`/${profile.username}`}
-              />
-            </div>
-          </details>
-        </section>
-      ) : null}
 
       <footer style={{ textAlign: "center", marginTop: "12px", color: "#8da4d0", fontSize: "0.78rem" }}>
         <Link className="link-inline" href="/">
