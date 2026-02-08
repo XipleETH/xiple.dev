@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   addLinkAction,
@@ -15,35 +15,47 @@ const PLATFORM_VALUE_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value))
 const SOCIAL_ONLY_OPTIONS = SOCIAL_OPTIONS.filter((entry) => !PLATFORM_VALUE_SET.has(entry.value));
 const LINK_PLATFORM_OPTIONS = [...PLATFORM_OPTIONS, ...SOCIAL_ONLY_OPTIONS];
 
-function PlatformButtons({ selected, onToggle, compact = false }) {
-  return (
-    <div className={`platform-toggle-grid${compact ? " compact" : ""}`}>
-      {LINK_PLATFORM_OPTIONS.map((entry) => {
-        const icon = getIconBySlug(entry.value);
-        const active = selected.includes(entry.value);
+function getOptionLabel(options, value) {
+  return options.find((entry) => entry.value === value)?.label || value;
+}
 
-        return (
-          <button
-            key={entry.value}
-            type="button"
-            className={`platform-toggle-btn${active ? " active" : ""}`}
-            onClick={() => onToggle(entry.value)}
-            title={entry.label}
-            aria-label={entry.label}
-          >
-            {icon?.icon ? (
-              <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
-            ) : (
-              <span className="platform-dot-fallback" aria-hidden="true" />
-            )}
-          </button>
-        );
-      })}
-    </div>
+function SlotControl({ value, options, placeholder, compact = false, onChange }) {
+  const icon = value ? getIconBySlug(value) : null;
+  const label = value ? getOptionLabel(options, value) : placeholder;
+
+  return (
+    <label className={`slot-control${compact ? " compact" : ""}${value ? " filled" : ""}`}>
+      <span className="slot-content">
+        {icon?.icon ? (
+          <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
+        ) : (
+          <span className="slot-plus" aria-hidden="true">
+            +
+          </span>
+        )}
+        <span className="slot-text">{label}</span>
+      </span>
+
+      <select
+        className="slot-select"
+        value={value}
+        onChange={(event) => onChange(String(event.target.value || ""))}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((entry) => (
+          <option key={entry.value} value={entry.value}>
+            {entry.label}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
 export default function DashboardEditor({ profile, links }) {
+  const profileFormRef = useRef(null);
+  const avatarFileInputRef = useRef(null);
+
   const [username, setUsername] = useState(profile?.username ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? "");
@@ -64,34 +76,83 @@ export default function DashboardEditor({ profile, links }) {
         .filter(Boolean),
     [selectedPlatforms]
   );
+  const profileSlots = useMemo(() => [...selectedPlatforms, ""], [selectedPlatforms]);
   const visibleLinks = links || [];
 
-  function toggleProfilePlatform(value) {
-    setSelectedPlatforms((current) =>
-      current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value]
-    );
-  }
+  function handleProfileSlotChange(index, nextValue) {
+    setSelectedPlatforms((current) => {
+      const list = [...current];
+      const next = String(nextValue || "").trim();
 
-  function toggleNewLinkPlatform(value) {
-    setNewLinkPlatform((current) => (current === value ? "" : value));
-  }
+      if (index < list.length) {
+        if (!next) {
+          list.splice(index, 1);
+          return list;
+        }
 
-  function toggleExistingLinkPlatform(linkId, value) {
-    setLinkPlatformById((current) => {
-      const selected = current[linkId] || "";
-      return {
-        ...current,
-        [linkId]: selected === value ? "" : value
-      };
+        if (list.includes(next) && list[index] !== next) {
+          return list;
+        }
+
+        list[index] = next;
+        return list;
+      }
+
+      if (!next || list.includes(next)) {
+        return list;
+      }
+
+      list.push(next);
+      return list;
     });
+  }
+
+  function handleAvatarPickClick() {
+    avatarFileInputRef.current?.click();
+  }
+
+  function handleAvatarFileChange(event) {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setAvatarUrl(URL.createObjectURL(file));
+    profileFormRef.current?.requestSubmit();
+  }
+
+  function handleExistingLinkPlatformChange(linkId, value) {
+    setLinkPlatformById((current) => ({
+      ...current,
+      [linkId]: value
+    }));
   }
 
   return (
     <section className="card preview-editor">
-      <form action={saveProfileAction} className="stack" encType="multipart/form-data">
+      <form ref={profileFormRef} action={saveProfileAction} className="stack" encType="multipart/form-data">
         <div className="profile-head preview-head">
-          <div className="avatar-wrap">
-            <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
+          <div className="avatar-edit-wrap">
+            <div className="avatar-wrap">
+              <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
+            </div>
+            <button
+              type="button"
+              className="avatar-edit-btn"
+              onClick={handleAvatarPickClick}
+              aria-label="Upload avatar image"
+              title="Change avatar"
+            >
+              <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
+            </button>
+            <input
+              ref={avatarFileInputRef}
+              className="sr-only-input"
+              type="file"
+              name="avatar_file"
+              accept="image/*"
+              onChange={handleAvatarFileChange}
+            />
           </div>
 
           <input
@@ -112,17 +173,7 @@ export default function DashboardEditor({ profile, links }) {
             maxLength={280}
           />
 
-          <input
-            className="inline-avatar-input"
-            name="avatar_url"
-            value={avatarUrl}
-            onChange={(event) => setAvatarUrl(event.target.value)}
-            placeholder="/assets/profile-photo.jpg"
-          />
-          <label className="file-row">
-            <span>Upload avatar image</span>
-            <input className="file-input" type="file" name="avatar_file" accept="image/*" />
-          </label>
+          <input type="hidden" name="avatar_url" value={avatarUrl} />
 
           {selectedProfilePlatforms.length > 0 ? (
             <div className="profile-platforms">
@@ -140,7 +191,19 @@ export default function DashboardEditor({ profile, links }) {
             </div>
           ) : null}
 
-          <PlatformButtons selected={selectedPlatforms} onToggle={toggleProfilePlatform} />
+          <div className="slot-list">
+            {profileSlots.map((value, index) => (
+              <SlotControl
+                key={`profile-slot-${index}-${value || "empty"}`}
+                value={value}
+                options={PLATFORM_OPTIONS}
+                placeholder="Add platform"
+                compact
+                onChange={(nextValue) => handleProfileSlotChange(index, nextValue)}
+              />
+            ))}
+          </div>
+
           <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
         </div>
 
@@ -160,7 +223,6 @@ export default function DashboardEditor({ profile, links }) {
           <div className="stack">
             {visibleLinks.map((link) => {
               const selectedPlatform = linkPlatformById[link.id] ?? link.platform ?? "";
-              const selectedArray = selectedPlatform ? [selectedPlatform] : [];
 
               return (
                 <article key={link.id} className="card link-editor-card">
@@ -186,10 +248,12 @@ export default function DashboardEditor({ profile, links }) {
                       <img className="link-image-preview" src={link.image_url} alt={`${link.label} preview`} />
                     ) : null}
 
-                    <PlatformButtons
-                      selected={selectedArray}
-                      onToggle={(value) => toggleExistingLinkPlatform(link.id, value)}
+                    <SlotControl
+                      value={selectedPlatform}
+                      options={LINK_PLATFORM_OPTIONS}
+                      placeholder="Choose platform"
                       compact
+                      onChange={(nextValue) => handleExistingLinkPlatformChange(link.id, nextValue)}
                     />
                     <input type="hidden" name="platform" value={selectedPlatform} />
 
@@ -227,7 +291,13 @@ export default function DashboardEditor({ profile, links }) {
             <input className="file-input" type="file" name="link_image_file" accept="image/*" />
           </label>
 
-          <PlatformButtons selected={newLinkPlatform ? [newLinkPlatform] : []} onToggle={toggleNewLinkPlatform} compact />
+          <SlotControl
+            value={newLinkPlatform}
+            options={LINK_PLATFORM_OPTIONS}
+            placeholder="Choose platform"
+            compact
+            onChange={setNewLinkPlatform}
+          />
           <input type="hidden" name="platform" value={newLinkPlatform} />
 
           <button className="btn btn-primary" type="submit">
