@@ -71,13 +71,6 @@ export default function DashboardEditor({ profile, links }) {
 
   const previewUsername = String(username || "").trim().replace(/^@/, "").toLowerCase() || "yourname";
   const previewAvatar = String(avatarUrl || "").trim() || "/assets/profile-photo.jpg";
-  const selectedProfilePlatforms = useMemo(
-    () =>
-      selectedPlatforms
-        .map((value) => PLATFORM_OPTIONS.find((entry) => entry.value === value))
-        .filter(Boolean),
-    [selectedPlatforms]
-  );
   const profileSlots = useMemo(() => [...selectedPlatforms, ""], [selectedPlatforms]);
   const visibleLinks = links || [];
 
@@ -194,22 +187,6 @@ export default function DashboardEditor({ profile, links }) {
 
           <input type="hidden" name="avatar_url" value={avatarUrl} />
 
-          {selectedProfilePlatforms.length > 0 ? (
-            <div className="profile-platforms">
-              {selectedProfilePlatforms.map((entry) => {
-                const icon = getIconBySlug(entry.value);
-                return (
-                  <span key={entry.value} className="platform-chip">
-                    {icon?.icon ? (
-                      <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
-                    ) : null}
-                    <span>{entry.label}</span>
-                  </span>
-                );
-              })}
-            </div>
-          ) : null}
-
           <div ref={profileSlotHostRef} className="profile-slot-list">
             {profileSlots.map((value, index) => {
               const icon = value ? getIconBySlug(value) : null;
@@ -244,6 +221,8 @@ export default function DashboardEditor({ profile, links }) {
                             key={entry.value}
                             type="button"
                             className={`profile-slot-option${value === entry.value ? " selected" : ""}`}
+                            title={entry.label}
+                            aria-label={entry.label}
                             onClick={() => {
                               handleProfileSlotChange(index, entry.value);
                               setOpenProfileSlot(null);
@@ -257,7 +236,6 @@ export default function DashboardEditor({ profile, links }) {
                                 aria-hidden="true"
                               />
                             ) : null}
-                            <span>{entry.label}</span>
                           </button>
                         );
                       })}
