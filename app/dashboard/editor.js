@@ -12,26 +12,34 @@ import { PLATFORM_OPTIONS, SOCIAL_OPTIONS, getIconBySlug } from "@/lib/constants
 import { parseProfilePlatforms } from "@/lib/profile-platforms";
 
 const PLATFORM_VALUE_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
-
 const SOCIAL_ONLY_OPTIONS = SOCIAL_OPTIONS.filter((entry) => !PLATFORM_VALUE_SET.has(entry.value));
+const LINK_PLATFORM_OPTIONS = [...PLATFORM_OPTIONS, ...SOCIAL_ONLY_OPTIONS];
 
-function renderLinkItem(link) {
-  const icon = getIconBySlug(link.platform);
-  const iconSrc = icon?.icon;
-  const iconMono = icon?.mono;
-
+function PlatformButtons({ selected, onToggle, compact = false }) {
   return (
-    <a key={link.id} href={link.url} className="link-item" target="_blank" rel="noreferrer noopener">
-      {iconSrc ? (
-        <img className={`icon${iconMono ? " mono" : ""}`} src={iconSrc} alt="" aria-hidden="true" />
-      ) : (
-        <span className="icon" aria-hidden="true" style={{ borderRadius: "50%", background: "#89a8ef" }} />
-      )}
-      <span>
-        <span className="link-title">{link.label}</span>
-        {link.platform ? <span className="link-caption">{link.platform}</span> : null}
-      </span>
-    </a>
+    <div className={`platform-toggle-grid${compact ? " compact" : ""}`}>
+      {LINK_PLATFORM_OPTIONS.map((entry) => {
+        const icon = getIconBySlug(entry.value);
+        const active = selected.includes(entry.value);
+
+        return (
+          <button
+            key={entry.value}
+            type="button"
+            className={`platform-toggle-btn${active ? " active" : ""}`}
+            onClick={() => onToggle(entry.value)}
+            title={entry.label}
+            aria-label={entry.label}
+          >
+            {icon?.icon ? (
+              <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
+            ) : (
+              <span className="platform-dot-fallback" aria-hidden="true" />
+            )}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -42,268 +50,133 @@ export default function DashboardEditor({ profile, links }) {
   const [selectedPlatforms, setSelectedPlatforms] = useState(() =>
     parseProfilePlatforms(profile?.tagline).filter((entry) => PLATFORM_VALUE_SET.has(entry))
   );
+  const [newLinkPlatform, setNewLinkPlatform] = useState("");
+  const [linkPlatformById, setLinkPlatformById] = useState(() =>
+    Object.fromEntries((links || []).map((entry) => [entry.id, entry.platform || ""]))
+  );
 
   const previewUsername = String(username || "").trim().replace(/^@/, "").toLowerCase() || "yourname";
   const previewAvatar = String(avatarUrl || "").trim() || "/assets/profile-photo.jpg";
-  const selectedPlatformEntries = useMemo(
+  const selectedProfilePlatforms = useMemo(
     () =>
       selectedPlatforms
         .map((value) => PLATFORM_OPTIONS.find((entry) => entry.value === value))
         .filter(Boolean),
     [selectedPlatforms]
   );
+  const visibleLinks = links || [];
 
-  const socialLinks = useMemo(
-    () => (links || []).filter((entry) => entry.is_active !== false && entry.kind === "social"),
-    [links]
-  );
-  const projectLinks = useMemo(
-    () => (links || []).filter((entry) => entry.is_active !== false && entry.kind !== "social"),
-    [links]
-  );
-
-  function togglePlatform(value) {
+  function toggleProfilePlatform(value) {
     setSelectedPlatforms((current) =>
       current.includes(value) ? current.filter((entry) => entry !== value) : [...current, value]
     );
   }
 
+  function toggleNewLinkPlatform(value) {
+    setNewLinkPlatform((current) => (current === value ? "" : value));
+  }
+
+  function toggleExistingLinkPlatform(linkId, value) {
+    setLinkPlatformById((current) => {
+      const selected = current[linkId] || "";
+      return {
+        ...current,
+        [linkId]: selected === value ? "" : value
+      };
+    });
+  }
+
   return (
-    <div className="dashboard-workspace">
-      <section className="stack">
-        <form action={saveProfileAction} className="card panel" style={{ padding: "16px" }}>
-          <p className="kicker">Profile</p>
-          <p className="page-sub">Edit your public card inline.</p>
-
-          <div className="inline-profile-card">
-            <div className="avatar-wrap">
-              <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
-            </div>
-
-            <div className="stack" style={{ marginTop: "10px" }}>
-              <div>
-                <p className="label">Username</p>
-                <input
-                  className="input"
-                  name="username"
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  placeholder="xiple"
-                  maxLength={30}
-                />
-              </div>
-
-              <div>
-                <p className="label">Bio</p>
-                <textarea
-                  className="textarea"
-                  name="bio"
-                  value={bio}
-                  onChange={(event) => setBio(event.target.value)}
-                  placeholder="Shipping apps for PC, Android, Reddit and Web."
-                  maxLength={280}
-                />
-              </div>
-
-              <div>
-                <p className="label">Avatar URL</p>
-                <input
-                  className="input"
-                  name="avatar_url"
-                  value={avatarUrl}
-                  onChange={(event) => setAvatarUrl(event.target.value)}
-                  placeholder="/assets/profile-photo.jpg"
-                />
-              </div>
-
-              <div>
-                <p className="label">Platforms you build for</p>
-                <div className="platform-picker">
-                  {PLATFORM_OPTIONS.map((entry) => {
-                    const icon = getIconBySlug(entry.value);
-                    const active = selectedPlatforms.includes(entry.value);
-
-                    return (
-                      <button
-                        key={entry.value}
-                        type="button"
-                        className={`platform-pill${active ? " active" : ""}`}
-                        onClick={() => togglePlatform(entry.value)}
-                      >
-                        {icon?.icon ? (
-                          <img
-                            className={`icon${icon.mono ? " mono" : ""}`}
-                            src={icon.icon}
-                            alt=""
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        <span>{entry.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
-              </div>
-            </div>
+    <section className="card preview-editor">
+      <form action={saveProfileAction} className="stack">
+        <div className="profile-head preview-head">
+          <div className="avatar-wrap">
+            <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
           </div>
 
-          <button className="btn btn-primary" type="submit">
-            Save profile
-          </button>
-        </form>
+          <input
+            className="inline-name-input"
+            name="username"
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
+            placeholder="username"
+            maxLength={30}
+          />
 
-        <section className="card panel" style={{ padding: "16px" }}>
-          <p className="kicker">Live preview</p>
-          <p className="page-sub">This is how your profile page will look.</p>
+          <textarea
+            className="inline-bio-input"
+            name="bio"
+            value={bio}
+            onChange={(event) => setBio(event.target.value)}
+            placeholder="Write your bio..."
+            maxLength={280}
+          />
 
-          <div className="profile-card" style={{ marginTop: "12px" }}>
-            <div className="profile-head">
-              <div className="avatar-wrap">
-                <img src={previewAvatar} alt={`${previewUsername} avatar`} />
-              </div>
-              <h1 className="profile-name">{previewUsername}</h1>
-              {selectedPlatformEntries.length > 0 ? (
-                <div className="profile-platforms">
-                  {selectedPlatformEntries.map((entry) => {
-                    const icon = getIconBySlug(entry.value);
-                    return (
-                      <span key={entry.value} className="platform-chip">
-                        {icon?.icon ? (
-                          <img
-                            className={`icon${icon.mono ? " mono" : ""}`}
-                            src={icon.icon}
-                            alt=""
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                        <span>{entry.label}</span>
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : null}
-              {bio ? <p className="profile-bio">{bio}</p> : null}
+          <input
+            className="inline-avatar-input"
+            name="avatar_url"
+            value={avatarUrl}
+            onChange={(event) => setAvatarUrl(event.target.value)}
+            placeholder="/assets/profile-photo.jpg"
+          />
+
+          {selectedProfilePlatforms.length > 0 ? (
+            <div className="profile-platforms">
+              {selectedProfilePlatforms.map((entry) => {
+                const icon = getIconBySlug(entry.value);
+                return (
+                  <span key={entry.value} className="platform-chip">
+                    {icon?.icon ? (
+                      <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
+                    ) : null}
+                    <span>{entry.label}</span>
+                  </span>
+                );
+              })}
             </div>
+          ) : null}
 
-            {socialLinks.length > 0 ? (
-              <div className="link-list" style={{ marginTop: "14px" }}>
-                {socialLinks.map((entry) => renderLinkItem(entry))}
-              </div>
-            ) : null}
+          <PlatformButtons selected={selectedPlatforms} onToggle={toggleProfilePlatform} />
+          <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
+        </div>
 
-            {projectLinks.length > 0 ? (
-              <>
-                <p className="kicker" style={{ marginTop: "16px" }}>
-                  Projects
-                </p>
-                <div className="link-list">{projectLinks.map((entry) => renderLinkItem(entry))}</div>
-              </>
-            ) : (
-              <p className="empty" style={{ marginTop: "14px" }}>
-                Add your first project link below.
-              </p>
-            )}
-          </div>
-        </section>
-      </section>
+        <button className="btn btn-primary" type="submit">
+          Save profile
+        </button>
+      </form>
+
+      <hr className="separator" style={{ margin: "14px 0" }} />
 
       <section className="stack">
-        <form action={addLinkAction} className="card panel" style={{ padding: "16px" }}>
-          <p className="kicker">Projects</p>
-          <h2 className="page-title" style={{ fontSize: "1.2rem", marginTop: "4px" }}>
-            Add link
-          </h2>
+        <p className="kicker">Links</p>
 
-          <div className="stack" style={{ marginTop: "10px" }}>
-            <div>
-              <p className="label">Label</p>
-              <input className="input" name="label" placeholder="Darkest Rumble" required maxLength={120} />
-            </div>
+        {visibleLinks.length === 0 ? (
+          <p className="empty">No links yet. Add your first one below.</p>
+        ) : (
+          <div className="stack">
+            {visibleLinks.map((link) => {
+              const selectedPlatform = linkPlatformById[link.id] ?? link.platform ?? "";
+              const selectedArray = selectedPlatform ? [selectedPlatform] : [];
 
-            <div>
-              <p className="label">URL</p>
-              <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
-            </div>
-
-            <div>
-              <p className="label">Platform / network</p>
-              <select className="select" name="platform" defaultValue="">
-                <option value="">None</option>
-                <optgroup label="Platforms">
-                  {PLATFORM_OPTIONS.map((entry) => (
-                    <option key={entry.value} value={entry.value}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </optgroup>
-                <optgroup label="Social">
-                  {SOCIAL_ONLY_OPTIONS.map((entry) => (
-                    <option key={entry.value} value={entry.value}>
-                      {entry.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
-
-            <button className="btn btn-primary" type="submit">
-              Add link
-            </button>
-          </div>
-        </form>
-
-        <section className="card panel" style={{ padding: "16px" }}>
-          <p className="kicker">Manage links</p>
-          <h2 className="page-title" style={{ fontSize: "1.2rem", marginTop: "4px" }}>
-            Existing links
-          </h2>
-
-          {!links || links.length === 0 ? (
-            <p className="empty" style={{ marginTop: "12px" }}>
-              No links yet.
-            </p>
-          ) : (
-            <div className="stack" style={{ marginTop: "12px" }}>
-              {links.map((link) => (
-                <article key={link.id} className="card" style={{ padding: "12px" }}>
+              return (
+                <article key={link.id} className="card link-editor-card">
                   <form action={updateLinkAction} className="stack">
                     <input type="hidden" name="id" value={link.id} />
 
-                    <div>
-                      <p className="label">Label</p>
-                      <input className="input" name="label" defaultValue={link.label ?? ""} required />
-                    </div>
+                    <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
 
-                    <div>
-                      <p className="label">URL</p>
-                      <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required />
-                    </div>
+                    <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
 
-                    <div>
-                      <p className="label">Platform / network</p>
-                      <select className="select" name="platform" defaultValue={link.platform || ""}>
-                        <option value="">None</option>
-                        <optgroup label="Platforms">
-                          {PLATFORM_OPTIONS.map((entry) => (
-                            <option key={entry.value} value={entry.value}>
-                              {entry.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                        <optgroup label="Social">
-                          {SOCIAL_ONLY_OPTIONS.map((entry) => (
-                            <option key={entry.value} value={entry.value}>
-                              {entry.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      </select>
-                    </div>
+                    <PlatformButtons
+                      selected={selectedArray}
+                      onToggle={(value) => toggleExistingLinkPlatform(link.id, value)}
+                      compact
+                    />
+                    <input type="hidden" name="platform" value={selectedPlatform} />
 
-                    <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <label className="link-active-row">
                       <input type="checkbox" name="is_active" defaultChecked={link.is_active !== false} />
-                      Active on public page
+                      Active
                     </label>
 
                     <div className="toolbar">
@@ -313,8 +186,6 @@ export default function DashboardEditor({ profile, links }) {
                     </div>
                   </form>
 
-                  <hr className="separator" />
-
                   <form action={deleteLinkAction}>
                     <input type="hidden" name="id" value={link.id} />
                     <button className="btn btn-danger" type="submit">
@@ -322,11 +193,24 @@ export default function DashboardEditor({ profile, links }) {
                     </button>
                   </form>
                 </article>
-              ))}
-            </div>
-          )}
-        </section>
+              );
+            })}
+          </div>
+        )}
+
+        <form action={addLinkAction} className="card link-editor-card stack">
+          <p className="kicker">New Link</p>
+          <input className="input" name="label" placeholder="Darkest Rumble" required maxLength={120} />
+          <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
+
+          <PlatformButtons selected={newLinkPlatform ? [newLinkPlatform] : []} onToggle={toggleNewLinkPlatform} compact />
+          <input type="hidden" name="platform" value={newLinkPlatform} />
+
+          <button className="btn btn-primary" type="submit">
+            Add link
+          </button>
+        </form>
       </section>
-    </div>
+    </section>
   );
 }

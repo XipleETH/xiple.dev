@@ -374,52 +374,123 @@ img {
   gap: 9px;
 }
 
-.dashboard-workspace {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+.preview-editor {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  padding: 16px;
 }
 
-.panel {
-  display: grid;
-  gap: 12px;
+.preview-head {
+  gap: 10px;
 }
 
-.inline-profile-card {
-  border: 1px solid rgba(171, 197, 245, 0.25);
-  border-radius: 16px;
-  background: rgba(13, 22, 37, 0.66);
-  padding: 14px;
+.inline-name-input {
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #eff4ff;
+  text-align: center;
+  font-family: var(--font-space), system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
 }
 
-.platform-picker {
+.inline-name-input::placeholder {
+  color: #8fa0c4;
+}
+
+.inline-bio-input {
+  width: 100%;
+  min-height: 72px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--muted);
+  text-align: center;
+  font: inherit;
+  line-height: 1.5;
+}
+
+.inline-bio-input::placeholder {
+  color: #8fa0c4;
+}
+
+.inline-avatar-input {
+  width: 100%;
+  border: 1px solid rgba(175, 200, 244, 0.24);
+  border-radius: 999px;
+  padding: 8px 12px;
+  text-align: center;
+  background: rgba(12, 20, 34, 0.72);
+  color: #d7e7ff;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.platform-toggle-grid {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: 8px;
 }
 
-.platform-pill {
+.platform-toggle-grid.compact {
+  gap: 7px;
+}
+
+.platform-toggle-btn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
   border: 1px solid rgba(178, 203, 248, 0.3);
-  border-radius: 999px;
+  border-radius: 12px;
   background: rgba(14, 23, 40, 0.8);
-  color: #dce9ff;
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 6px 10px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
 }
 
-.platform-pill.active {
+.platform-toggle-btn:hover {
+  transform: translateY(-1px);
+  border-color: rgba(205, 223, 255, 0.52);
+}
+
+.platform-toggle-btn.active {
   border-color: rgba(129, 244, 215, 0.55);
-  background: rgba(30, 64, 58, 0.7);
+  background: linear-gradient(140deg, rgba(50, 99, 84, 0.86), rgba(35, 65, 110, 0.8));
 }
 
-.platform-pill .icon {
+.platform-toggle-btn .icon {
   width: 13px;
   height: 13px;
+}
+
+.platform-toggle-grid.compact .platform-toggle-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.platform-dot-fallback {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #a9c4f5;
+}
+
+.link-editor-card {
+  padding: 12px;
+}
+
+.link-active-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: #cfe0ff;
 }
 
 .wallet-btn {
@@ -445,10 +516,6 @@ img {
 
 @media (max-width: 760px) {
   .grid-2 {
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard-workspace {
     grid-template-columns: 1fr;
   }
 
