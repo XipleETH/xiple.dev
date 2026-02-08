@@ -44,7 +44,7 @@ export default async function DashboardPage({ searchParams }) {
 
   const { data: links } = await supabase
     .from("profile_links")
-    .select("id, label, url, kind, platform, position, is_active")
+    .select("id, label, url, kind, platform, image_url, position, is_active")
     .eq("profile_id", user.id)
     .order("position", { ascending: true })
     .order("created_at", { ascending: true });

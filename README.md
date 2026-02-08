@@ -44,6 +44,8 @@ This creates:
 
 - `profiles`
 - `profile_links`
+- `profile_links.image_url`
+- Storage buckets: `avatars`, `link-images`
 - RLS policies
 - trigger to auto-create profile rows for new auth users
 

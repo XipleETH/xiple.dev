@@ -35,6 +35,8 @@ create table if not exists public.profile_links (
   constraint profile_links_kind_check check (kind in ('project', 'social'))
 );
 
+alter table public.profile_links add column if not exists image_url text;
+
 create index if not exists profiles_username_idx on public.profiles (username);
 create index if not exists profile_links_profile_id_idx on public.profile_links (profile_id);
 create index if not exists profile_links_profile_position_idx on public.profile_links (profile_id, position, created_at);
@@ -131,3 +133,108 @@ create policy "profile_links_delete_own"
 on public.profile_links
 for delete
 using (auth.uid() = profile_id);
+
+-- Supabase Storage buckets for profile avatars and link images.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values
+  (
+    'avatars',
+    'avatars',
+    true,
+    6291456,
+    array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']
+  ),
+  (
+    'link-images',
+    'link-images',
+    true,
+    6291456,
+    array['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']
+  )
+on conflict (id) do update
+set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "avatars_public_read" on storage.objects;
+drop policy if exists "avatars_insert_own_folder" on storage.objects;
+drop policy if exists "avatars_update_own_folder" on storage.objects;
+drop policy if exists "avatars_delete_own_folder" on storage.objects;
+
+drop policy if exists "link_images_public_read" on storage.objects;
+drop policy if exists "link_images_insert_own_folder" on storage.objects;
+drop policy if exists "link_images_update_own_folder" on storage.objects;
+drop policy if exists "link_images_delete_own_folder" on storage.objects;
+
+create policy "avatars_public_read"
+on storage.objects
+for select
+using (bucket_id = 'avatars');
+
+create policy "avatars_insert_own_folder"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "avatars_update_own_folder"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "avatars_delete_own_folder"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'avatars'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "link_images_public_read"
+on storage.objects
+for select
+using (bucket_id = 'link-images');
+
+create policy "link_images_insert_own_folder"
+on storage.objects
+for insert
+to authenticated
+with check (
+  bucket_id = 'link-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "link_images_update_own_folder"
+on storage.objects
+for update
+to authenticated
+using (
+  bucket_id = 'link-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+)
+with check (
+  bucket_id = 'link-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);
+
+create policy "link_images_delete_own_folder"
+on storage.objects
+for delete
+to authenticated
+using (
+  bucket_id = 'link-images'
+  and (storage.foldername(name))[1] = auth.uid()::text
+);

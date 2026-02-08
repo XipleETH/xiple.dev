@@ -295,7 +295,7 @@ img {
 
 .link-item {
   display: grid;
-  grid-template-columns: 26px 1fr;
+  grid-template-columns: 26px 1fr auto;
   align-items: center;
   gap: 10px;
   border: 1px solid rgba(174, 198, 245, 0.25);
@@ -329,6 +329,14 @@ img {
   margin-top: 2px;
   font-size: 0.77rem;
   color: var(--muted);
+}
+
+.link-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  object-fit: cover;
+  border: 1px solid rgba(183, 208, 245, 0.34);
 }
 
 .toolbar {
@@ -483,6 +491,44 @@ img {
 
 .link-editor-card {
   padding: 12px;
+}
+
+.file-row {
+  display: grid;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: #bdd0f1;
+}
+
+.file-input {
+  width: 100%;
+  border: 1px dashed rgba(171, 198, 241, 0.35);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: rgba(12, 20, 35, 0.75);
+  color: #dce8ff;
+  font: inherit;
+}
+
+.file-input::file-selector-button {
+  border: 1px solid rgba(183, 206, 244, 0.4);
+  border-radius: 999px;
+  background: rgba(25, 40, 68, 0.82);
+  color: #deebff;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 6px 10px;
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.link-image-preview {
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(171, 199, 244, 0.28);
 }
 
 .link-active-row {

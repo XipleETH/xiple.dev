@@ -88,7 +88,7 @@ export default function DashboardEditor({ profile, links }) {
 
   return (
     <section className="card preview-editor">
-      <form action={saveProfileAction} className="stack">
+      <form action={saveProfileAction} className="stack" encType="multipart/form-data">
         <div className="profile-head preview-head">
           <div className="avatar-wrap">
             <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
@@ -119,6 +119,10 @@ export default function DashboardEditor({ profile, links }) {
             onChange={(event) => setAvatarUrl(event.target.value)}
             placeholder="/assets/profile-photo.jpg"
           />
+          <label className="file-row">
+            <span>Upload avatar image</span>
+            <input className="file-input" type="file" name="avatar_file" accept="image/*" />
+          </label>
 
           {selectedProfilePlatforms.length > 0 ? (
             <div className="profile-platforms">
@@ -160,12 +164,27 @@ export default function DashboardEditor({ profile, links }) {
 
               return (
                 <article key={link.id} className="card link-editor-card">
-                  <form action={updateLinkAction} className="stack">
+                  <form action={updateLinkAction} className="stack" encType="multipart/form-data">
                     <input type="hidden" name="id" value={link.id} />
 
                     <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
 
                     <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
+                    <input
+                      className="input"
+                      name="image_url"
+                      defaultValue={link.image_url ?? ""}
+                      placeholder="Image URL (optional)"
+                      maxLength={500}
+                    />
+                    <label className="file-row">
+                      <span>Upload link image</span>
+                      <input className="file-input" type="file" name="link_image_file" accept="image/*" />
+                    </label>
+
+                    {link.image_url ? (
+                      <img className="link-image-preview" src={link.image_url} alt={`${link.label} preview`} />
+                    ) : null}
 
                     <PlatformButtons
                       selected={selectedArray}
@@ -198,10 +217,15 @@ export default function DashboardEditor({ profile, links }) {
           </div>
         )}
 
-        <form action={addLinkAction} className="card link-editor-card stack">
+        <form action={addLinkAction} className="card link-editor-card stack" encType="multipart/form-data">
           <p className="kicker">New Link</p>
           <input className="input" name="label" placeholder="Darkest Rumble" required maxLength={120} />
           <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
+          <input className="input" name="image_url" placeholder="Image URL (optional)" maxLength={500} />
+          <label className="file-row">
+            <span>Upload link image</span>
+            <input className="file-input" type="file" name="link_image_file" accept="image/*" />
+          </label>
 
           <PlatformButtons selected={newLinkPlatform ? [newLinkPlatform] : []} onToggle={toggleNewLinkPlatform} compact />
           <input type="hidden" name="platform" value={newLinkPlatform} />

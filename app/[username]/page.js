@@ -31,6 +31,9 @@ function renderLinkRow(link) {
         <span className="link-title">{link.label}</span>
         {link.platform ? <span className="link-caption">{link.platform}</span> : null}
       </span>
+      {link.image_url ? (
+        <img className="link-thumb" src={link.image_url} alt={`${link.label} thumbnail`} loading="lazy" />
+      ) : null}
     </a>
   );
 }
@@ -59,7 +62,7 @@ export default async function PublicProfilePage({ params }) {
 
   const { data: links } = await supabase
     .from("profile_links")
-    .select("id, label, url, kind, platform, position")
+    .select("id, label, url, kind, platform, image_url, position")
     .eq("profile_id", profile.id)
     .eq("is_active", true)
     .order("position", { ascending: true })
