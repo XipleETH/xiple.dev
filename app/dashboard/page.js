@@ -81,7 +81,7 @@ export default async function DashboardPage({ searchParams }) {
       {message ? <p className="notice ok">{message}</p> : null}
       {error ? <p className="notice err">{error}</p> : null}
 
-      <DashboardEditor profile={profile} links={links || []} />
+      <DashboardEditor profile={profile} links={links || []} userId={user.id} />
     </main>
   );
 }

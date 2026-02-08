@@ -10,10 +10,14 @@ import {
 } from "@/app/dashboard/actions";
 import { PLATFORM_OPTIONS, SOCIAL_OPTIONS, getIconBySlug } from "@/lib/constants";
 import { parseProfilePlatforms } from "@/lib/profile-platforms";
+import { createClient } from "@/lib/supabase/client";
 
 const PLATFORM_VALUE_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
 const SOCIAL_ONLY_OPTIONS = SOCIAL_OPTIONS.filter((entry) => !PLATFORM_VALUE_SET.has(entry.value));
 const LINK_PLATFORM_OPTIONS = [...PLATFORM_OPTIONS, ...SOCIAL_ONLY_OPTIONS];
+const IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+const AVATAR_BUCKET = "avatars";
+const LINK_IMAGE_BUCKET = "link-images";
 
 function PlatformSlot({
   value,
@@ -84,7 +88,20 @@ function PlatformSlot({
   );
 }
 
-export default function DashboardEditor({ profile, links }) {
+function sanitizeFileName(name) {
+  return String(name || "image")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 90);
+}
+
+function getErrorMessage(error) {
+  return String(error?.message || "Could not upload image.");
+}
+
+export default function DashboardEditor({ profile, links, userId }) {
+  const supabase = createClient();
   const profileFormRef = useRef(null);
   const avatarFileInputRef = useRef(null);
   const profileSlotHostRef = useRef(null);
@@ -102,6 +119,12 @@ export default function DashboardEditor({ profile, links }) {
   const [linkPlatformById, setLinkPlatformById] = useState(() =>
     Object.fromEntries((links || []).map((entry) => [entry.id, entry.platform || ""]))
   );
+  const [linkImageById, setLinkImageById] = useState(() =>
+    Object.fromEntries((links || []).map((entry) => [entry.id, entry.image_url || ""]))
+  );
+  const [newLinkImageUrl, setNewLinkImageUrl] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const [uploadingTarget, setUploadingTarget] = useState("");
 
   const previewUsername = String(username || "").trim().replace(/^@/, "").toLowerCase() || "yourname";
   const previewAvatar = String(avatarUrl || "").trim() || "/assets/profile-photo.jpg";
@@ -157,14 +180,90 @@ export default function DashboardEditor({ profile, links }) {
     avatarFileInputRef.current?.click();
   }
 
-  function handleAvatarFileChange(event) {
+  async function uploadImageToStorage(file, bucket, prefix) {
+    if (!file || file.size <= 0) {
+      throw new Error("No image file selected.");
+    }
+
+    if (!String(file.type || "").startsWith("image/")) {
+      throw new Error("File must be an image.");
+    }
+
+    if (file.size > IMAGE_MAX_BYTES) {
+      throw new Error("Image too large (max 6MB).");
+    }
+
+    const safeName = sanitizeFileName(file.name);
+    const path = `${userId}/${prefix}-${Date.now()}-${safeName}`;
+
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      cacheControl: "3600",
+      upsert: false,
+      contentType: file.type
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  async function handleAvatarFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
 
-    setAvatarUrl(URL.createObjectURL(file));
-    profileFormRef.current?.requestSubmit();
+    setUploadError("");
+    setUploadingTarget("avatar");
+
+    try {
+      const url = await uploadImageToStorage(file, AVATAR_BUCKET, "avatar");
+      setAvatarUrl(url);
+    } catch (error) {
+      setUploadError(getErrorMessage(error));
+    } finally {
+      setUploadingTarget("");
+      event.target.value = "";
+    }
+  }
+
+  async function handleLinkImageFileChange(linkId, file) {
+    if (!file) {
+      return;
+    }
+
+    setUploadError("");
+    setUploadingTarget(`link-${linkId}`);
+
+    try {
+      const url = await uploadImageToStorage(file, LINK_IMAGE_BUCKET, "link");
+      setLinkImageById((current) => ({ ...current, [linkId]: url }));
+    } catch (error) {
+      setUploadError(getErrorMessage(error));
+    } finally {
+      setUploadingTarget("");
+    }
+  }
+
+  async function handleNewLinkImageChange(file) {
+    if (!file) {
+      return;
+    }
+
+    setUploadError("");
+    setUploadingTarget("new-link");
+
+    try {
+      const url = await uploadImageToStorage(file, LINK_IMAGE_BUCKET, "link");
+      setNewLinkImageUrl(url);
+    } catch (error) {
+      setUploadError(getErrorMessage(error));
+    } finally {
+      setUploadingTarget("");
+    }
   }
 
   function setExistingLinkPlatform(linkId, value) {
@@ -176,6 +275,8 @@ export default function DashboardEditor({ profile, links }) {
 
   return (
     <section className="card preview-editor">
+      {uploadError ? <p className="notice err">{uploadError}</p> : null}
+
       <form ref={profileFormRef} action={saveProfileAction} className="stack" encType="multipart/form-data">
         <div className="profile-head preview-head">
           <div className="avatar-edit-wrap">
@@ -188,6 +289,7 @@ export default function DashboardEditor({ profile, links }) {
               onClick={handleAvatarPickClick}
               aria-label="Upload avatar image"
               title="Change avatar"
+              disabled={uploadingTarget === "avatar"}
             >
               <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
             </button>
@@ -195,7 +297,6 @@ export default function DashboardEditor({ profile, links }) {
               ref={avatarFileInputRef}
               className="sr-only-input"
               type="file"
-              name="avatar_file"
               accept="image/*"
               onChange={handleAvatarFileChange}
             />
@@ -267,13 +368,25 @@ export default function DashboardEditor({ profile, links }) {
                     <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
                     <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
 
-                    <label className={`link-image-slot${link.image_url ? " has-image" : ""}`} title="Upload project image">
-                      {link.image_url ? (
-                        <img className="link-image-mini" src={link.image_url} alt={`${link.label} image`} />
+                    <label
+                      className={`link-image-slot${linkImageById[link.id] ? " has-image" : ""}`}
+                      title="Upload project image"
+                    >
+                      {linkImageById[link.id] ? (
+                        <img className="link-image-mini" src={linkImageById[link.id]} alt={`${link.label} image`} />
                       ) : (
                         <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
                       )}
-                      <input className="sr-only-input" type="file" name="link_image_file" accept="image/*" />
+                      <input
+                        className="sr-only-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          handleLinkImageFileChange(link.id, file);
+                          event.target.value = "";
+                        }}
+                      />
                     </label>
 
                     <PlatformSlot
@@ -287,6 +400,7 @@ export default function DashboardEditor({ profile, links }) {
                     />
 
                     <input type="hidden" name="platform" value={selectedPlatform} />
+                    <input type="hidden" name="image_url" value={linkImageById[link.id] || ""} />
 
                     <label className="link-active-row">
                       <input type="checkbox" name="is_active" defaultChecked={link.is_active !== false} />
@@ -317,8 +431,21 @@ export default function DashboardEditor({ profile, links }) {
               <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
 
               <label className="link-image-slot" title="Upload project image">
-                <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
-                <input className="sr-only-input" type="file" name="link_image_file" accept="image/*" />
+                {newLinkImageUrl ? (
+                  <img className="link-image-mini" src={newLinkImageUrl} alt="New link image" />
+                ) : (
+                  <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
+                )}
+                <input
+                  className="sr-only-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    handleNewLinkImageChange(file);
+                    event.target.value = "";
+                  }}
+                />
               </label>
 
               <PlatformSlot
@@ -332,6 +459,7 @@ export default function DashboardEditor({ profile, links }) {
               />
 
               <input type="hidden" name="platform" value={newLinkPlatform} />
+              <input type="hidden" name="image_url" value={newLinkImageUrl} />
 
               <button className="btn btn-primary" type="submit">
                 Add
