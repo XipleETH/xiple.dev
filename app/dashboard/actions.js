@@ -1,8 +1,14 @@
-"use server";
+﻿"use server";
 
 import { redirect } from "next/navigation";
 
 import { PLATFORM_OPTIONS, RESERVED_USERNAMES, SOCIAL_OPTIONS } from "@/lib/constants";
+import {
+  resolveAvatarFrame,
+  resolveLinkStyle,
+  resolveProfileLayout,
+  resolveProfileTheme
+} from "@/lib/profile-customization";
 import { serializeProfilePlatforms } from "@/lib/profile-platforms";
 import { createClient } from "@/lib/supabase/server";
 
@@ -10,52 +16,60 @@ const USERNAME_REGEX = /^[a-z0-9](?:[a-z0-9_]{1,28}[a-z0-9])?$/;
 const IMAGE_MAX_BYTES = 6 * 1024 * 1024;
 const AVATAR_BUCKET = "avatars";
 const LINK_IMAGE_BUCKET = "link-images";
+const URL_PROTOCOLS = new Set(["http:", "https:"]);
 
 const PROFILE_PLATFORM_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
-const SOCIAL_PLATFORM_SET = new Set(SOCIAL_OPTIONS.map((entry) => entry.value));
-const XIPLE_USERNAME = "xiple";
+const LINK_PLATFORM_SET = new Set([...PLATFORM_OPTIONS, ...SOCIAL_OPTIONS].map((entry) => entry.value));
 
-const XIPLE_PROFILE_DEFAULTS = {
-  bio: "Shipping apps for PC, Android, Reddit and Web.",
-  avatarUrl: "/assets/profile-photo.jpg",
-  platforms: ["steam", "windows", "android", "reddit", "web"]
-};
+function normalizeUsername(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "");
+}
 
-const XIPLE_SEED_LINKS = [
-  {
-    label: "Darkest Rumble",
-    url: "https://steamcommunity.com/sharedfiles/filedetails/?id=3661115905",
-    kind: "project",
-    platform: "steam"
-  },
-  {
-    label: "Lookback Finance",
-    url: "https://lookback.finance/",
-    kind: "project",
-    platform: "android"
-  },
-  {
-    label: "@xipleeth on X",
-    url: "https://x.com/xipleeth",
-    kind: "social",
-    platform: "x"
-  },
-  {
-    label: "XipleETH on GitHub",
-    url: "https://github.com/XipleETH",
-    kind: "social",
-    platform: "github"
-  }
-];
+function normalizeText(value, max = 500) {
+  return String(value || "").trim().slice(0, max);
+}
 
 function normalizePlatform(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  return normalized || null;
+  if (!normalized || !LINK_PLATFORM_SET.has(normalized)) {
+    return null;
+  }
+  return normalized;
+}
+
+function normalizePublicUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  const withProtocol = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+
+  try {
+    const parsed = new URL(withProtocol);
+    if (!URL_PROTOCOLS.has(parsed.protocol)) {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
 }
 
 function normalizeImageUrl(value) {
-  const normalized = String(value || "").trim();
-  return normalized || null;
+  const raw = String(value || "").trim();
+  if (!raw) {
+    return null;
+  }
+
+  if (raw.startsWith("/")) {
+    return raw;
+  }
+
+  return normalizePublicUrl(raw);
 }
 
 function getFileFromForm(formData, fieldName) {
@@ -91,6 +105,7 @@ function assertValidImageFile(file) {
 
 async function uploadImageFile(supabase, { file, bucket, userId, prefix }) {
   assertValidImageFile(file);
+
   const safeName = sanitizeFileName(file.name);
   const path = `${userId}/${prefix}-${Date.now()}-${safeName}`;
 
@@ -129,7 +144,7 @@ function resolveLinkKind(platform) {
     return "project";
   }
 
-  if (platform && SOCIAL_PLATFORM_SET.has(platform)) {
+  if (platform && LINK_PLATFORM_SET.has(platform)) {
     return "social";
   }
 
@@ -169,17 +184,9 @@ async function requireUserProfile(supabase) {
     redirect("/");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (!profile) {
-    const { error } = await supabase.from("profiles").insert({ id: user.id });
-    if (error) {
-      redirect("/");
-    }
+  const { error } = await supabase.from("profiles").insert({ id: user.id });
+  if (error && error.code !== "23505") {
+    redirect("/");
   }
 
   return user;
@@ -190,30 +197,22 @@ export async function saveProfileAction(formData) {
   const user = await requireUserProfile(supabase);
   const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
-  const bio = String(formData.get("bio") || "").trim();
-  let avatarUrl = String(formData.get("avatar_url") || "").trim();
+  const username = normalizeUsername(formData.get("username"));
+  const displayName = normalizeText(formData.get("display_name"), 80);
+  const bio = normalizeText(formData.get("bio"), 280);
+  const profileTheme = resolveProfileTheme(formData.get("profile_theme"));
+  const profileLayout = resolveProfileLayout(formData.get("profile_layout"));
+  const avatarFrame = resolveAvatarFrame(formData.get("avatar_frame"));
+  const linkStyle = resolveLinkStyle(formData.get("link_style"));
+  let avatarUrl = normalizeImageUrl(formData.get("avatar_url"));
   const avatarFile = getFileFromForm(formData, "avatar_file");
   const selectedPlatforms = parsePlatformsCsv(formData.get("platforms"));
 
-  let username = String(formData.get("username") || "").trim().toLowerCase();
-  if (username.startsWith("@")) {
-    username = username.slice(1);
-  }
-
   if (username) {
-    if (!USERNAME_REGEX.test(username)) {
-      redirect(returnPath);
-    }
-
-    if (RESERVED_USERNAMES.has(username)) {
+    if (!USERNAME_REGEX.test(username) || RESERVED_USERNAMES.has(username)) {
       redirect(returnPath);
     }
   }
-
-  const isXipleProfile = username === XIPLE_USERNAME;
-  const tagline = serializeProfilePlatforms(
-    selectedPlatforms.length > 0 ? selectedPlatforms : isXipleProfile ? XIPLE_PROFILE_DEFAULTS.platforms : []
-  );
 
   if (avatarFile) {
     try {
@@ -223,7 +222,7 @@ export async function saveProfileAction(formData) {
         userId: user.id,
         prefix: "avatar"
       });
-    } catch (error) {
+    } catch {
       redirect(returnPath);
     }
   }
@@ -232,51 +231,22 @@ export async function saveProfileAction(formData) {
     .from("profiles")
     .update({
       username: username || null,
-      display_name: null,
-      tagline,
-      bio: bio || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.bio : null),
-      avatar_url: avatarUrl || (isXipleProfile ? XIPLE_PROFILE_DEFAULTS.avatarUrl : null)
+      display_name: displayName || null,
+      tagline: serializeProfilePlatforms(selectedPlatforms),
+      bio: bio || null,
+      avatar_url: avatarUrl || null,
+      profile_theme: profileTheme,
+      profile_layout: profileLayout,
+      avatar_frame: avatarFrame,
+      link_style: linkStyle
     })
     .eq("id", user.id);
 
   if (error) {
-    const duplicate = error.message.toLowerCase().includes("duplicate") || error.code === "23505";
-    if (duplicate) {
-      redirect(returnPath);
-    }
     redirect(returnPath);
   }
 
-  if (isXipleProfile) {
-    const { count, error: countError } = await supabase
-      .from("profile_links")
-      .select("id", { head: true, count: "exact" })
-      .eq("profile_id", user.id);
-
-    if (countError) {
-      redirect(returnPath);
-    }
-
-    if ((count || 0) === 0) {
-      const rows = XIPLE_SEED_LINKS.map((entry, index) => ({
-        profile_id: user.id,
-        label: entry.label,
-        url: entry.url,
-        kind: entry.kind,
-        platform: entry.platform,
-        position: index + 1,
-        is_active: true
-      }));
-
-      const { error: seedError } = await supabase.from("profile_links").insert(rows);
-      if (seedError) {
-        redirect(returnPath);
-      }
-    }
-  }
-
-  const nextPath = username ? `/${username}` : returnPath;
-  redirect(nextPath);
+  redirect(username ? `/${username}` : returnPath);
 }
 
 export async function addLinkAction(formData) {
@@ -284,20 +254,13 @@ export async function addLinkAction(formData) {
   const user = await requireUserProfile(supabase);
   const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
-  const label = String(formData.get("label") || "").trim();
-  const url = String(formData.get("url") || "").trim();
+  const label = normalizeText(formData.get("label"), 120);
+  const url = normalizePublicUrl(formData.get("url"));
   const platform = normalizePlatform(formData.get("platform"));
   let imageUrl = normalizeImageUrl(formData.get("image_url"));
   const imageFile = getFileFromForm(formData, "link_image_file");
 
   if (!label || !url) {
-    redirect(returnPath);
-  }
-
-  let position = 0;
-  try {
-    position = await resolveNextLinkPosition(supabase, user.id);
-  } catch (error) {
     redirect(returnPath);
   }
 
@@ -309,9 +272,16 @@ export async function addLinkAction(formData) {
         userId: user.id,
         prefix: "link"
       });
-    } catch (error) {
+    } catch {
       redirect(returnPath);
     }
+  }
+
+  let position = 0;
+  try {
+    position = await resolveNextLinkPosition(supabase, user.id);
+  } catch {
+    redirect(returnPath);
   }
 
   const { error } = await supabase.from("profile_links").insert({
@@ -319,9 +289,10 @@ export async function addLinkAction(formData) {
     label,
     url,
     kind: resolveLinkKind(platform),
-    platform: platform || null,
+    platform,
     image_url: imageUrl,
-    position
+    position,
+    is_active: true
   });
 
   if (error) {
@@ -337,8 +308,8 @@ export async function updateLinkAction(formData) {
   const returnPath = normalizeReturnPath(formData.get("return_path"), "/");
 
   const id = String(formData.get("id") || "").trim();
-  const label = String(formData.get("label") || "").trim();
-  const url = String(formData.get("url") || "").trim();
+  const label = normalizeText(formData.get("label"), 120);
+  const url = normalizePublicUrl(formData.get("url"));
   const platform = normalizePlatform(formData.get("platform"));
   const hasImageUrlField = formData.has("image_url");
   let imageUrl = hasImageUrlField ? normalizeImageUrl(formData.get("image_url")) : null;
@@ -357,26 +328,26 @@ export async function updateLinkAction(formData) {
         userId: user.id,
         prefix: "link"
       });
-    } catch (error) {
+    } catch {
       redirect(returnPath);
     }
   }
 
-  const updatePayload = {
+  const payload = {
     label,
     url,
     kind: resolveLinkKind(platform),
-    platform: platform || null,
+    platform,
     is_active: isActive
   };
 
   if (hasImageUrlField || imageFile) {
-    updatePayload.image_url = imageUrl;
+    payload.image_url = imageUrl;
   }
 
   const { error } = await supabase
     .from("profile_links")
-    .update(updatePayload)
+    .update(payload)
     .eq("id", id)
     .eq("profile_id", user.id);
 
@@ -398,7 +369,6 @@ export async function deleteLinkAction(formData) {
   }
 
   const { error } = await supabase.from("profile_links").delete().eq("id", id).eq("profile_id", user.id);
-
   if (error) {
     redirect(returnPath);
   }
@@ -411,3 +381,4 @@ export async function signOutAction() {
   await supabase.auth.signOut();
   redirect("/");
 }
+

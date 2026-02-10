@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -109,11 +109,15 @@ async function ensureBaseChain(provider) {
 function parseError(error) {
   const text = String(error?.message || error || "").trim();
   if (!text) {
-    return "Could not connect the wallet.";
+    return "Could not connect wallet.";
+  }
+
+  if (text.includes("Wallet not detected")) {
+    return "Wallet not detected. Install it and try again.";
   }
 
   if (text.includes("provider is not enabled")) {
-    return "Enable Web3 auth provider in Supabase (Ethereum and Solana).";
+    return "Enable Web3 provider in Supabase Auth (Ethereum + Solana).";
   }
 
   return text;
@@ -126,13 +130,10 @@ const WALLET_BUTTONS = [
   { id: "phantom", label: "Phantom", mark: "P", type: "solana" }
 ];
 
-export default function WalletAuth({
-  initialError,
-  redirectTo = "/",
-  embedded = false
-}) {
+export default function WalletAuth({ initialError, redirectTo = "/", embedded = false }) {
   const router = useRouter();
   const supabase = createClient();
+
   const [pendingWallet, setPendingWallet] = useState("");
   const [error, setError] = useState(initialError || "");
 
@@ -149,7 +150,7 @@ export default function WalletAuth({
     const { error: authError } = await supabase.auth.signInWithWeb3({
       chain: "ethereum",
       wallet: provider,
-      statement: "Sign in to hubfol.io",
+      statement: "Sign in to links.ngo",
       options: walletId === "base" ? { signInWithEthereum: { chainId: BASE_CHAIN_ID } } : undefined
     });
 
@@ -167,7 +168,7 @@ export default function WalletAuth({
     const { error: authError } = await supabase.auth.signInWithWeb3({
       chain: "solana",
       wallet: provider,
-      statement: "Sign in to hubfol.io"
+      statement: "Sign in to links.ngo"
     });
 
     if (authError) {
@@ -189,10 +190,7 @@ export default function WalletAuth({
           .maybeSingle();
 
         const username = String(profile?.username || "").trim();
-        if (username) {
-          return `/${username}`;
-        }
-        return redirectTo;
+        return username ? `/${username}` : redirectTo;
       }
 
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -223,12 +221,10 @@ export default function WalletAuth({
   }
 
   const content = (
-    <section className="card" style={{ padding: "18px" }}>
+    <section className="card auth-card">
       <p className="kicker">Wallet</p>
-      <h1 className="page-title" style={{ fontSize: "1.8rem", marginTop: "6px" }}>
-        Connect wallet
-      </h1>
-      <p className="page-sub">Use Base, MetaMask, Trust Wallet or Phantom to edit your profile.</p>
+      <h2 className="page-title">Connect wallet</h2>
+      <p className="page-sub">Sign in with your wallet to claim and edit your profile page.</p>
 
       {error ? <p className="notice err">{error}</p> : null}
 
@@ -249,9 +245,7 @@ export default function WalletAuth({
         ))}
       </div>
 
-      <p className="help" style={{ marginTop: "10px" }}>
-        If a wallet is not installed, that button will fail until the extension/app is available.
-      </p>
+      <p className="help">If one button fails, install that wallet extension/app and retry.</p>
     </section>
   );
 
@@ -259,5 +253,6 @@ export default function WalletAuth({
     return content;
   }
 
-  return <main className="container stack" style={{ maxWidth: "560px" }}>{content}</main>;
+  return <main className="container stack">{content}</main>;
 }
+

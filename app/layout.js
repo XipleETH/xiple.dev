@@ -1,4 +1,4 @@
-import { Manrope, Space_Grotesk } from "next/font/google";
+﻿import { Manrope, Space_Grotesk } from "next/font/google";
 
 import "./globals.css";
 
@@ -13,7 +13,7 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata = {
-  title: "hubfol.io",
+  title: "links.ngo",
   description: "Create and claim your public profile link page."
 };
 
@@ -24,3 +24,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+

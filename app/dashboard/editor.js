@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   addLinkAction,
@@ -9,468 +9,416 @@ import {
   updateLinkAction
 } from "@/app/dashboard/actions";
 import { PLATFORM_OPTIONS, SOCIAL_OPTIONS, getIconBySlug } from "@/lib/constants";
+import {
+  AVATAR_FRAME_OPTIONS,
+  LINK_STYLE_OPTIONS,
+  PROFILE_LAYOUT_OPTIONS,
+  PROFILE_THEME_OPTIONS,
+  resolveAvatarFrame,
+  resolveLinkStyle,
+  resolveProfileLayout,
+  resolveProfileTheme
+} from "@/lib/profile-customization";
 import { parseProfilePlatforms } from "@/lib/profile-platforms";
-import { createClient } from "@/lib/supabase/client";
 
-const PLATFORM_VALUE_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
-const SOCIAL_ONLY_OPTIONS = SOCIAL_OPTIONS.filter((entry) => !PLATFORM_VALUE_SET.has(entry.value));
-const LINK_PLATFORM_OPTIONS = [...PLATFORM_OPTIONS, ...SOCIAL_ONLY_OPTIONS];
-const IMAGE_MAX_BYTES = 6 * 1024 * 1024;
-const AVATAR_BUCKET = "avatars";
-const LINK_IMAGE_BUCKET = "link-images";
+const PROFILE_PLATFORM_SET = new Set(PLATFORM_OPTIONS.map((entry) => entry.value));
+const LINK_PLATFORM_OPTIONS = Array.from(
+  new Map([...PLATFORM_OPTIONS, ...SOCIAL_OPTIONS].map((entry) => [entry.value, entry])).values()
+);
+const DEFAULT_AVATAR = "/assets/profile-photo.jpg";
 
-function PlatformSlot({
-  value,
-  options,
-  open,
-  onToggleOpen,
-  onSelect,
-  onRemove,
-  titleWhenEmpty = "Add platform"
-}) {
-  const icon = value ? getIconBySlug(value) : null;
-
-  return (
-    <div className="profile-slot-wrap">
-      <button
-        type="button"
-        className={`profile-slot-btn${value ? " filled" : ""}`}
-        onClick={() => onToggleOpen(!open)}
-        aria-label={value ? `Change platform ${value}` : titleWhenEmpty}
-        title={value ? `Change ${value}` : titleWhenEmpty}
-      >
-        {icon?.icon ? (
-          <img className={`icon${icon.mono ? " mono" : ""}`} src={icon.icon} alt="" aria-hidden="true" />
-        ) : (
-          <span className="slot-plus" aria-hidden="true">
-            +
-          </span>
-        )}
-      </button>
-
-      {open ? (
-        <div className="profile-slot-menu">
-          {options.map((entry) => {
-            const optionIcon = getIconBySlug(entry.value);
-            return (
-              <button
-                key={entry.value}
-                type="button"
-                className={`profile-slot-option${value === entry.value ? " selected" : ""}`}
-                title={entry.label}
-                aria-label={entry.label}
-                onClick={() => {
-                  onSelect(entry.value);
-                  onToggleOpen(false);
-                }}
-              >
-                {optionIcon?.icon ? (
-                  <img className={`icon${optionIcon.mono ? " mono" : ""}`} src={optionIcon.icon} alt="" aria-hidden="true" />
-                ) : null}
-              </button>
-            );
-          })}
-          {value ? (
-            <button
-              type="button"
-              className="profile-slot-option remove"
-              onClick={() => {
-                onRemove?.();
-                onToggleOpen(false);
-              }}
-            >
-              Remove
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function sanitizeFileName(name) {
-  return String(name || "image")
+function normalizeUsernameInput(value) {
+  return String(value || "")
     .toLowerCase()
-    .replace(/[^a-z0-9._-]/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 90);
+    .replace(/\s+/g, "")
+    .replace(/^@+/, "");
 }
 
-function getErrorMessage(error) {
-  return String(error?.message || "Could not upload image.");
+function PlatformToggle({ value, label, icon, mono, active, onToggle }) {
+  return (
+    <button
+      type="button"
+      className={`platform-toggle${active ? " active" : ""}`}
+      onClick={() => onToggle(value)}
+      aria-pressed={active}
+    >
+      {icon ? <img className={`icon${mono ? " mono" : ""}`} src={icon} alt="" aria-hidden="true" /> : null}
+      <span>{label}</span>
+    </button>
+  );
 }
 
-export default function DashboardEditor({ profile, links, userId, returnPath = "/" }) {
-  const supabase = createClient();
-  const profileFormRef = useRef(null);
-  const avatarFileInputRef = useRef(null);
-  const profileSlotHostRef = useRef(null);
-  const linkSlotHostRef = useRef(null);
+function ChoiceButton({ label, value, active, onSelect }) {
+  return (
+    <button
+      type="button"
+      className={`choice-btn${active ? " active" : ""}`}
+      onClick={() => onSelect(value)}
+      aria-pressed={active}
+    >
+      {label}
+    </button>
+  );
+}
 
+export default function DashboardEditor({ profile, links, returnPath = "/" }) {
   const [username, setUsername] = useState(profile?.username ?? "");
+  const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? "");
   const [selectedPlatforms, setSelectedPlatforms] = useState(() =>
-    parseProfilePlatforms(profile?.tagline).filter((entry) => PLATFORM_VALUE_SET.has(entry))
+    parseProfilePlatforms(profile?.tagline).filter((entry) => PROFILE_PLATFORM_SET.has(entry))
   );
-  const [newLinkPlatform, setNewLinkPlatform] = useState("");
-  const [openProfileSlot, setOpenProfileSlot] = useState(null);
-  const [openLinkSlot, setOpenLinkSlot] = useState("");
-  const [linkPlatformById, setLinkPlatformById] = useState(() =>
-    Object.fromEntries((links || []).map((entry) => [entry.id, entry.platform || ""]))
-  );
-  const [linkImageById, setLinkImageById] = useState(() =>
-    Object.fromEntries((links || []).map((entry) => [entry.id, entry.image_url || ""]))
-  );
-  const [newLinkImageUrl, setNewLinkImageUrl] = useState("");
-  const [uploadError, setUploadError] = useState("");
-  const [uploadingTarget, setUploadingTarget] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url ?? "");
+  const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url || DEFAULT_AVATAR);
+  const [avatarObjectUrl, setAvatarObjectUrl] = useState("");
+  const [profileTheme, setProfileTheme] = useState(() => resolveProfileTheme(profile?.profile_theme));
+  const [profileLayout, setProfileLayout] = useState(() => resolveProfileLayout(profile?.profile_layout));
+  const [avatarFrame, setAvatarFrame] = useState(() => resolveAvatarFrame(profile?.avatar_frame));
+  const [linkStyle, setLinkStyle] = useState(() => resolveLinkStyle(profile?.link_style));
 
-  const previewUsername = String(username || "").trim().replace(/^@/, "").toLowerCase() || "yourname";
-  const previewAvatar = String(avatarUrl || "").trim() || "/assets/profile-photo.jpg";
-  const profileSlots = [...selectedPlatforms, ""];
-  const visibleLinks = links || [];
-
-  function handleProfileSlotChange(index, nextValue) {
-    setSelectedPlatforms((current) => {
-      const list = [...current];
-      const next = String(nextValue || "").trim();
-
-      if (index < list.length) {
-        if (!next) {
-          list.splice(index, 1);
-          return list;
-        }
-
-        if (list.includes(next) && list[index] !== next) {
-          return list;
-        }
-
-        list[index] = next;
-        return list;
-      }
-
-      if (!next || list.includes(next)) {
-        return list;
-      }
-
-      list.push(next);
-      return list;
-    });
-  }
+  const existingLinks = Array.isArray(links) ? links : [];
+  const handle = normalizeUsernameInput(username) || "yourname";
+  const previewName = String(displayName || "").trim() || handle;
+  const previewIcon = getIconBySlug(selectedPlatforms[0] || "web");
 
   useEffect(() => {
-    function handleDocumentPointer(event) {
-      if (profileSlotHostRef.current && !profileSlotHostRef.current.contains(event.target)) {
-        setOpenProfileSlot(null);
-      }
-
-      if (linkSlotHostRef.current && !linkSlotHostRef.current.contains(event.target)) {
-        setOpenLinkSlot("");
-      }
-    }
-
-    document.addEventListener("mousedown", handleDocumentPointer);
     return () => {
-      document.removeEventListener("mousedown", handleDocumentPointer);
+      if (avatarObjectUrl) {
+        URL.revokeObjectURL(avatarObjectUrl);
+      }
     };
-  }, []);
+  }, [avatarObjectUrl]);
 
-  function handleAvatarPickClick() {
-    avatarFileInputRef.current?.click();
-  }
-
-  async function uploadImageToStorage(file, bucket, prefix) {
-    if (!file || file.size <= 0) {
-      throw new Error("No image file selected.");
-    }
-
-    if (!String(file.type || "").startsWith("image/")) {
-      throw new Error("File must be an image.");
-    }
-
-    if (file.size > IMAGE_MAX_BYTES) {
-      throw new Error("Image too large (max 6MB).");
-    }
-
-    const safeName = sanitizeFileName(file.name);
-    const path = `${userId}/${prefix}-${Date.now()}-${safeName}`;
-
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      cacheControl: "3600",
-      upsert: false,
-      contentType: file.type
+  function togglePlatform(platform) {
+    setSelectedPlatforms((current) => {
+      if (current.includes(platform)) {
+        return current.filter((entry) => entry !== platform);
+      }
+      return [...current, platform];
     });
-
-    if (error) {
-      throw error;
-    }
-
-    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-    return data.publicUrl;
   }
 
-  async function handleAvatarFileChange(event) {
+  function handleAvatarFileChange(event) {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
 
-    setUploadError("");
-    setUploadingTarget("avatar");
-
-    try {
-      const url = await uploadImageToStorage(file, AVATAR_BUCKET, "avatar");
-      setAvatarUrl(url);
-    } catch (error) {
-      setUploadError(getErrorMessage(error));
-    } finally {
-      setUploadingTarget("");
-      event.target.value = "";
-    }
-  }
-
-  async function handleLinkImageFileChange(linkId, file) {
-    if (!file) {
-      return;
+    if (avatarObjectUrl) {
+      URL.revokeObjectURL(avatarObjectUrl);
     }
 
-    setUploadError("");
-    setUploadingTarget(`link-${linkId}`);
-
-    try {
-      const url = await uploadImageToStorage(file, LINK_IMAGE_BUCKET, "link");
-      setLinkImageById((current) => ({ ...current, [linkId]: url }));
-    } catch (error) {
-      setUploadError(getErrorMessage(error));
-    } finally {
-      setUploadingTarget("");
-    }
-  }
-
-  async function handleNewLinkImageChange(file) {
-    if (!file) {
-      return;
-    }
-
-    setUploadError("");
-    setUploadingTarget("new-link");
-
-    try {
-      const url = await uploadImageToStorage(file, LINK_IMAGE_BUCKET, "link");
-      setNewLinkImageUrl(url);
-    } catch (error) {
-      setUploadError(getErrorMessage(error));
-    } finally {
-      setUploadingTarget("");
-    }
-  }
-
-  function setExistingLinkPlatform(linkId, value) {
-    setLinkPlatformById((current) => ({
-      ...current,
-      [linkId]: value
-    }));
+    const nextObjectUrl = URL.createObjectURL(file);
+    setAvatarObjectUrl(nextObjectUrl);
+    setAvatarPreview(nextObjectUrl);
+    setAvatarUrl("");
   }
 
   return (
-    <section className="card preview-editor">
-      {uploadError ? <p className="notice err">{uploadError}</p> : null}
-
-      <form ref={profileFormRef} action={saveProfileAction} className="stack" encType="multipart/form-data">
-        <div className="profile-head preview-head">
-          <div className="avatar-edit-wrap">
-            <div className="avatar-wrap">
-              <img src={previewAvatar} alt={`${previewUsername} avatar preview`} />
-            </div>
-            <button
-              type="button"
-              className="avatar-edit-btn"
-              onClick={handleAvatarPickClick}
-              aria-label="Upload avatar image"
-              title="Change avatar"
-              disabled={uploadingTarget === "avatar"}
-            >
-              <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
-            </button>
-            <input
-              ref={avatarFileInputRef}
-              className="sr-only-input"
-              type="file"
-              accept="image/*"
-              onChange={handleAvatarFileChange}
-            />
-          </div>
-
-          <input
-            className="inline-name-input"
-            name="username"
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            placeholder="username"
-            maxLength={30}
-          />
-
-          <textarea
-            className="inline-bio-input"
-            name="bio"
-            value={bio}
-            onChange={(event) => setBio(event.target.value)}
-            placeholder="Write your bio..."
-            maxLength={280}
-          />
-
-          <input type="hidden" name="avatar_url" value={avatarUrl} />
+    <section className="stack">
+      <article className="card preview-editor">
+        <form action={saveProfileAction} className="stack" encType="multipart/form-data">
           <input type="hidden" name="return_path" value={returnPath} />
-
-          <div ref={profileSlotHostRef} className="profile-slot-list">
-            {profileSlots.map((value, index) => {
-              const available = PLATFORM_OPTIONS.filter(
-                (entry) => entry.value === value || !selectedPlatforms.includes(entry.value)
-              );
-
-              return (
-                <PlatformSlot
-                  key={`profile-slot-${index}-${value || "empty"}`}
-                  value={value}
-                  options={available}
-                  open={openProfileSlot === index}
-                  onToggleOpen={(nextOpen) => setOpenProfileSlot(nextOpen ? index : null)}
-                  onSelect={(nextValue) => handleProfileSlotChange(index, nextValue)}
-                  onRemove={() => handleProfileSlotChange(index, "")}
-                />
-              );
-            })}
-          </div>
-
           <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
-        </div>
+          <input type="hidden" name="avatar_url" value={avatarUrl} />
+          <input type="hidden" name="profile_theme" value={profileTheme} />
+          <input type="hidden" name="profile_layout" value={profileLayout} />
+          <input type="hidden" name="avatar_frame" value={avatarFrame} />
+          <input type="hidden" name="link_style" value={linkStyle} />
 
-        <button className="btn btn-primary" type="submit">
-          Save profile
-        </button>
-      </form>
+          <div className="profile-head preview-head">
+            <div className="avatar-edit-wrap">
+              <div className="avatar-wrap">
+                <img src={avatarPreview || DEFAULT_AVATAR} alt={`${previewName} avatar preview`} />
+              </div>
 
-      <hr className="separator" style={{ margin: "14px 0" }} />
-
-      <section className="stack">
-        <p className="kicker">Links</p>
-
-        <div ref={linkSlotHostRef} className="stack">
-          {visibleLinks.length > 0 ? (
-            visibleLinks.map((link) => {
-              const selectedPlatform = linkPlatformById[link.id] ?? link.platform ?? "";
-              const slotKey = `link-${link.id}`;
-
-              return (
-                <article key={link.id} className="card link-editor-card">
-                  <form action={updateLinkAction} className="link-row-form" encType="multipart/form-data">
-                    <input type="hidden" name="id" value={link.id} />
-                    <input type="hidden" name="return_path" value={returnPath} />
-                    <input className="input" name="label" defaultValue={link.label ?? ""} required maxLength={120} />
-                    <input className="input" name="url" defaultValue={link.url ?? ""} type="url" required maxLength={500} />
-
-                    <label
-                      className={`link-image-slot${linkImageById[link.id] ? " has-image" : ""}`}
-                      title="Upload project image"
-                    >
-                      {linkImageById[link.id] ? (
-                        <img className="link-image-mini" src={linkImageById[link.id]} alt={`${link.label} image`} />
-                      ) : (
-                        <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
-                      )}
-                      <input
-                        className="sr-only-input"
-                        type="file"
-                        accept="image/*"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0];
-                          handleLinkImageFileChange(link.id, file);
-                          event.target.value = "";
-                        }}
-                      />
-                    </label>
-
-                    <PlatformSlot
-                      value={selectedPlatform}
-                      options={LINK_PLATFORM_OPTIONS}
-                      open={openLinkSlot === slotKey}
-                      onToggleOpen={(nextOpen) => setOpenLinkSlot(nextOpen ? slotKey : "")}
-                      onSelect={(nextValue) => setExistingLinkPlatform(link.id, nextValue)}
-                      onRemove={() => setExistingLinkPlatform(link.id, "")}
-                      titleWhenEmpty="Choose platform"
-                    />
-
-                    <input type="hidden" name="platform" value={selectedPlatform} />
-                    <input type="hidden" name="image_url" value={linkImageById[link.id] || ""} />
-
-                    <label className="link-active-row">
-                      <input type="checkbox" name="is_active" defaultChecked={link.is_active !== false} />
-                      Active
-                    </label>
-
-                    <button className="btn" type="submit">
-                      Save
-                    </button>
-                  </form>
-
-                  <div className="toolbar">
-                    <form action={deleteLinkAction}>
-                      <input type="hidden" name="id" value={link.id} />
-                      <input type="hidden" name="return_path" value={returnPath} />
-                      <button className="btn btn-danger" type="submit">
-                        Delete
-                      </button>
-                    </form>
-                  </div>
-                </article>
-              );
-            })
-          ) : null}
-
-          <form action={addLinkAction} className="card link-editor-card" encType="multipart/form-data">
-            <div className="link-row-form">
-              <input type="hidden" name="return_path" value={returnPath} />
-              <input className="input" name="label" placeholder="Project name" required maxLength={120} />
-              <input className="input" name="url" placeholder="https://..." required type="url" maxLength={500} />
-
-              <label className="link-image-slot" title="Upload project image">
-                {newLinkImageUrl ? (
-                  <img className="link-image-mini" src={newLinkImageUrl} alt="New link image" />
-                ) : (
-                  <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
-                )}
+              <label className="avatar-edit-btn" title="Upload avatar image">
+                <img src="/assets/icons/image.svg" alt="" aria-hidden="true" />
+                <span className="sr-only">Upload avatar</span>
                 <input
                   className="sr-only-input"
                   type="file"
+                  name="avatar_file"
                   accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    handleNewLinkImageChange(file);
-                    event.target.value = "";
-                  }}
+                  onChange={handleAvatarFileChange}
                 />
               </label>
-
-              <PlatformSlot
-                value={newLinkPlatform}
-                options={LINK_PLATFORM_OPTIONS}
-                open={openLinkSlot === "new"}
-                onToggleOpen={(nextOpen) => setOpenLinkSlot(nextOpen ? "new" : "")}
-                onSelect={setNewLinkPlatform}
-                onRemove={() => setNewLinkPlatform("")}
-                titleWhenEmpty="Choose platform"
-              />
-
-              <input type="hidden" name="platform" value={newLinkPlatform} />
-              <input type="hidden" name="image_url" value={newLinkImageUrl} />
-
-              <button className="btn btn-primary" type="submit">
-                Add
-              </button>
             </div>
+
+            <label className="field w-full">
+              <span className="label">Username</span>
+              <div className="input-prefix">
+                <span>links.ngo/</span>
+                <input
+                  className="input"
+                  name="username"
+                  value={username}
+                  maxLength={30}
+                  placeholder="username"
+                  onChange={(event) => setUsername(normalizeUsernameInput(event.target.value))}
+                />
+              </div>
+            </label>
+
+            <label className="field w-full">
+              <span className="label">Display name</span>
+              <input
+                className="input"
+                name="display_name"
+                value={displayName}
+                maxLength={80}
+                placeholder="Your public name"
+                onChange={(event) => setDisplayName(event.target.value)}
+              />
+            </label>
+
+            <label className="field w-full">
+              <span className="label">Bio</span>
+              <textarea
+                className="textarea"
+                name="bio"
+                value={bio}
+                maxLength={280}
+                placeholder="What do you do?"
+                onChange={(event) => setBio(event.target.value)}
+              />
+            </label>
+
+            <div className="field w-full">
+              <p className="label">Platforms</p>
+              <div className="platform-toggle-list">
+                {PLATFORM_OPTIONS.map((entry) => (
+                  <PlatformToggle
+                    key={entry.value}
+                    value={entry.value}
+                    label={entry.label}
+                    icon={entry.icon}
+                    mono={entry.mono}
+                    active={selectedPlatforms.includes(entry.value)}
+                    onToggle={togglePlatform}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="field w-full">
+              <p className="label">Theme</p>
+              <div className="choice-grid">
+                {PROFILE_THEME_OPTIONS.map((entry) => (
+                  <ChoiceButton
+                    key={entry.value}
+                    label={entry.label}
+                    value={entry.value}
+                    active={profileTheme === entry.value}
+                    onSelect={setProfileTheme}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="field w-full">
+              <p className="label">Page template</p>
+              <div className="choice-grid">
+                {PROFILE_LAYOUT_OPTIONS.map((entry) => (
+                  <ChoiceButton
+                    key={entry.value}
+                    label={entry.label}
+                    value={entry.value}
+                    active={profileLayout === entry.value}
+                    onSelect={setProfileLayout}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="field w-full">
+              <p className="label">Avatar frame</p>
+              <div className="choice-grid">
+                {AVATAR_FRAME_OPTIONS.map((entry) => (
+                  <ChoiceButton
+                    key={entry.value}
+                    label={entry.label}
+                    value={entry.value}
+                    active={avatarFrame === entry.value}
+                    onSelect={setAvatarFrame}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="field w-full">
+              <p className="label">Link style</p>
+              <div className="choice-grid">
+                {LINK_STYLE_OPTIONS.map((entry) => (
+                  <ChoiceButton
+                    key={entry.value}
+                    label={entry.label}
+                    value={entry.value}
+                    active={linkStyle === entry.value}
+                    onSelect={setLinkStyle}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div
+              className={`style-preview public-profile profile-theme-${profileTheme} profile-layout-${profileLayout} avatar-frame-${avatarFrame} link-style-${linkStyle}`}
+            >
+              <div className="profile-head">
+                <div className="avatar-wrap">
+                  <img src={avatarPreview || DEFAULT_AVATAR} alt="Style preview avatar" />
+                </div>
+                <p className="style-preview-name">{previewName}</p>
+                <p className="style-preview-handle">@{handle}</p>
+              </div>
+              <div className="link-list" style={{ marginTop: "10px" }}>
+                <div className="link-item">
+                  {previewIcon?.icon ? (
+                    <img className={`icon${previewIcon.mono ? " mono" : ""}`} src={previewIcon.icon} alt="" aria-hidden="true" />
+                  ) : (
+                    <span className="icon icon-fallback" aria-hidden="true" />
+                  )}
+                  <span>
+                    <span className="link-title">Main project</span>
+                    <span className="link-caption">Primary link style preview</span>
+                  </span>
+                </div>
+                <div className="link-item">
+                  <span className="icon icon-fallback" aria-hidden="true" />
+                  <span>
+                    <span className="link-title">Social profile</span>
+                    <span className="link-caption">Template and frame preview</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button className="btn btn-primary" type="submit">
+            Save profile
+          </button>
+        </form>
+      </article>
+
+      <section className="stack">
+        <p className="kicker">Your links</p>
+
+        {existingLinks.length === 0 ? <p className="empty">No links yet. Add your first one below.</p> : null}
+
+        {existingLinks.map((link) => (
+          <article key={link.id} className="card link-editor-card">
+            <form action={updateLinkAction} className="stack link-editor-form" encType="multipart/form-data">
+              <input type="hidden" name="id" value={link.id} />
+              <input type="hidden" name="return_path" value={returnPath} />
+              <input type="hidden" name="image_url" value={link.image_url || ""} />
+
+              <div className="grid grid-2">
+                <label className="field">
+                  <span className="label">Label</span>
+                  <input className="input" name="label" defaultValue={link.label || ""} required maxLength={120} />
+                </label>
+
+                <label className="field">
+                  <span className="label">URL</span>
+                  <input
+                    className="input"
+                    name="url"
+                    type="text"
+                    defaultValue={link.url || ""}
+                    placeholder="https://..."
+                    required
+                    maxLength={500}
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-2">
+                <label className="field">
+                  <span className="label">Platform</span>
+                  <select className="select" name="platform" defaultValue={link.platform || ""}>
+                    <option value="">None</option>
+                    {LINK_PLATFORM_OPTIONS.map((entry) => (
+                      <option key={`existing-${link.id}-${entry.value}`} value={entry.value}>
+                        {entry.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="field">
+                  <span className="label">Image (optional)</span>
+                  <input className="file-input" type="file" name="link_image_file" accept="image/*" />
+                </label>
+              </div>
+
+              {link.image_url ? (
+                <img className="link-image-preview" src={link.image_url} alt={`${link.label} preview`} />
+              ) : null}
+
+              <div className="link-editor-actions">
+                <label className="link-active-row">
+                  <input type="checkbox" name="is_active" defaultChecked={link.is_active !== false} />
+                  <span>Visible on profile</span>
+                </label>
+
+                <button className="btn btn-primary" type="submit">
+                  Save changes
+                </button>
+              </div>
+            </form>
+
+            <form action={deleteLinkAction} className="toolbar">
+              <input type="hidden" name="id" value={link.id} />
+              <input type="hidden" name="return_path" value={returnPath} />
+              <button className="btn btn-danger" type="submit">
+                Delete link
+              </button>
+            </form>
+          </article>
+        ))}
+
+        <article className="card link-editor-card">
+          <form action={addLinkAction} className="stack link-editor-form" encType="multipart/form-data">
+            <input type="hidden" name="return_path" value={returnPath} />
+
+            <p className="kicker">Add new link</p>
+
+            <div className="grid grid-2">
+              <label className="field">
+                <span className="label">Label</span>
+                <input className="input" name="label" placeholder="My project" required maxLength={120} />
+              </label>
+
+              <label className="field">
+                <span className="label">URL</span>
+                <input className="input" name="url" type="text" placeholder="https://..." required maxLength={500} />
+              </label>
+            </div>
+
+            <div className="grid grid-2">
+              <label className="field">
+                <span className="label">Platform</span>
+                <select className="select" name="platform" defaultValue="">
+                  <option value="">None</option>
+                  {LINK_PLATFORM_OPTIONS.map((entry) => (
+                    <option key={`new-${entry.value}`} value={entry.value}>
+                      {entry.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span className="label">Image (optional)</span>
+                <input className="file-input" type="file" name="link_image_file" accept="image/*" />
+              </label>
+            </div>
+
+            <button className="btn btn-primary" type="submit">
+              Add link
+            </button>
           </form>
-        </div>
+        </article>
       </section>
     </section>
   );

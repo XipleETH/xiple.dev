@@ -1,5 +1,5 @@
--- Run this in Supabase SQL Editor.
--- It creates the core schema for hubfol.io profiles.
+﻿-- Run this in Supabase SQL Editor.
+-- It creates the core schema for links.ngo profiles.
 
 create extension if not exists pgcrypto;
 
@@ -10,6 +10,10 @@ create table if not exists public.profiles (
   tagline text,
   bio text,
   avatar_url text,
+  profile_theme text not null default 'futurist',
+  profile_layout text not null default 'stack',
+  avatar_frame text not null default 'ring',
+  link_style text not null default 'glass',
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now()),
   constraint username_format check (
@@ -36,6 +40,10 @@ create table if not exists public.profile_links (
 );
 
 alter table public.profile_links add column if not exists image_url text;
+alter table public.profiles add column if not exists profile_theme text not null default 'futurist';
+alter table public.profiles add column if not exists profile_layout text not null default 'stack';
+alter table public.profiles add column if not exists avatar_frame text not null default 'ring';
+alter table public.profiles add column if not exists link_style text not null default 'glass';
 
 create index if not exists profiles_username_idx on public.profiles (username);
 create index if not exists profile_links_profile_id_idx on public.profile_links (profile_id);
@@ -238,3 +246,5 @@ using (
   bucket_id = 'link-images'
   and (storage.foldername(name))[1] = auth.uid()::text
 );
+
+
