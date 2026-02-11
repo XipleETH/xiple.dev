@@ -5,6 +5,42 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+const DEMO_PROFILE = {
+  id: "preview",
+  username: "creator",
+  display_name: "Preview Creator",
+  tagline: "platforms:web,steam",
+  bio: "This is preview mode without wallet. Customize the page and we iterate fast.",
+  avatar_url: "/assets/profile-photo.jpg",
+  profile_theme: "futurist",
+  profile_layout: "stack",
+  avatar_frame: "ring",
+  link_style: "glass"
+};
+
+const DEMO_LINKS = [
+  {
+    id: 1,
+    label: "Main project",
+    url: "https://example.com",
+    kind: "project",
+    platform: "web",
+    image_url: "",
+    position: 0,
+    is_active: true
+  },
+  {
+    id: 2,
+    label: "My social",
+    url: "https://instagram.com",
+    kind: "social",
+    platform: "instagram",
+    image_url: "",
+    position: 1,
+    is_active: true
+  }
+];
+
 async function loadOrCreateProfile(supabase, userId) {
   const fields =
     "id, username, display_name, tagline, bio, avatar_url, profile_theme, profile_layout, avatar_frame, link_style";
@@ -64,6 +100,14 @@ export default async function HomePage() {
             <li>Themes, templates and avatar frames</li>
             <li>Project and social links in one place</li>
           </ul>
+        </section>
+
+        <section className="card preview-editor stack">
+          <p className="kicker">No wallet required</p>
+          <p className="page-sub">
+            You are in preview mode. Edit styles and layout now; connect wallet only when you want to save to your real account.
+          </p>
+          <DashboardEditor profile={DEMO_PROFILE} links={DEMO_LINKS} returnPath="/" previewOnly />
         </section>
 
         <WalletAuth redirectTo="/" embedded />

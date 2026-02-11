@@ -61,7 +61,7 @@ function ChoiceButton({ label, value, active, onSelect }) {
   );
 }
 
-export default function DashboardEditor({ profile, links, returnPath = "/" }) {
+export default function DashboardEditor({ profile, links, returnPath = "/", previewOnly = false }) {
   const [username, setUsername] = useState(profile?.username ?? "");
   const [displayName, setDisplayName] = useState(profile?.display_name ?? "");
   const [bio, setBio] = useState(profile?.bio ?? "");
@@ -75,6 +75,7 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
   const [profileLayout, setProfileLayout] = useState(() => resolveProfileLayout(profile?.profile_layout));
   const [avatarFrame, setAvatarFrame] = useState(() => resolveAvatarFrame(profile?.avatar_frame));
   const [linkStyle, setLinkStyle] = useState(() => resolveLinkStyle(profile?.link_style));
+  const [previewNotice, setPreviewNotice] = useState("");
 
   const existingLinks = Array.isArray(links) ? links : [];
   const handle = normalizeUsernameInput(username) || "yourname";
@@ -114,10 +115,25 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
     setAvatarUrl("");
   }
 
+  function handlePreviewSubmit(event) {
+    if (!previewOnly) {
+      return;
+    }
+
+    event.preventDefault();
+    setPreviewNotice("Preview mode: changes are local only. Connect wallet to save permanently.");
+  }
+
   return (
     <section className="stack">
       <article className="card preview-editor">
-        <form action={saveProfileAction} className="stack" encType="multipart/form-data">
+        <form
+          action={previewOnly ? undefined : saveProfileAction}
+          className="stack"
+          encType="multipart/form-data"
+          onSubmit={handlePreviewSubmit}
+        >
+          {previewOnly ? <p className="notice">{previewNotice || "Preview mode active. No wallet needed."}</p> : null}
           <input type="hidden" name="return_path" value={returnPath} />
           <input type="hidden" name="platforms" value={selectedPlatforms.join(",")} />
           <input type="hidden" name="avatar_url" value={avatarUrl} />
@@ -295,7 +311,7 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
           </div>
 
           <button className="btn btn-primary" type="submit">
-            Save profile
+            {previewOnly ? "Apply preview" : "Save profile"}
           </button>
         </form>
       </article>
@@ -307,7 +323,12 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
 
         {existingLinks.map((link) => (
           <article key={link.id} className="card link-editor-card">
-            <form action={updateLinkAction} className="stack link-editor-form" encType="multipart/form-data">
+            <form
+              action={previewOnly ? undefined : updateLinkAction}
+              className="stack link-editor-form"
+              encType="multipart/form-data"
+              onSubmit={handlePreviewSubmit}
+            >
               <input type="hidden" name="id" value={link.id} />
               <input type="hidden" name="return_path" value={returnPath} />
               <input type="hidden" name="image_url" value={link.image_url || ""} />
@@ -367,7 +388,7 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
               </div>
             </form>
 
-            <form action={deleteLinkAction} className="toolbar">
+            <form action={previewOnly ? undefined : deleteLinkAction} className="toolbar" onSubmit={handlePreviewSubmit}>
               <input type="hidden" name="id" value={link.id} />
               <input type="hidden" name="return_path" value={returnPath} />
               <button className="btn btn-danger" type="submit">
@@ -378,7 +399,12 @@ export default function DashboardEditor({ profile, links, returnPath = "/" }) {
         ))}
 
         <article className="card link-editor-card">
-          <form action={addLinkAction} className="stack link-editor-form" encType="multipart/form-data">
+          <form
+            action={previewOnly ? undefined : addLinkAction}
+            className="stack link-editor-form"
+            encType="multipart/form-data"
+            onSubmit={handlePreviewSubmit}
+          >
             <input type="hidden" name="return_path" value={returnPath} />
 
             <p className="kicker">Add new link</p>
